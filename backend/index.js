@@ -3,16 +3,49 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 const db = require('./db');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cdcult_super_secret_2026';
 const PORT = process.env.PORT || 3000;
 
-// 🔑 Middleware
+// Настройка Multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'cover') cb(null, 'uploads/covers');
+    else if (file.fieldname === 'track_audio') cb(null, 'uploads/tracks');
+    else cb(null, 'uploads');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadCover = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Только изображения!'), false);
+  }
+}).single('cover');
+
+const uploadTrack = multer({
+  storage: storage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.includes('audio') || file.originalname.endsWith('.wav') || file.originalname.endsWith('.flac')) cb(null, true);
+    else cb(new Error('Только аудио файлы!'), false);
+  }
+}).single('track_audio');
+
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Токен не найден' });
@@ -25,16 +58,13 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
-// 👤 Auth
+// Auth Routes
 app.post('/api/auth/register', async (req, res) => {
   const { login, email, name, password, confirmPassword } = req.body;
   if (password !== confirmPassword) return res.status(400).json({ error: 'Пароли не совпадают' });
-  if (password.length < 6) return res.status(400).json({ error: 'Минимум 6 символов' });
-  
   const hash = await bcrypt.hash(password, 10);
   try {
-    const result = db.prepare('INSERT INTO users (login, email, name, password) VALUES (?, ?, ?, ?)')
-      .run(login, email, name, hash);
+    const result = db.prepare('INSERT INTO users (login, email, name, password) VALUES (?, ?, ?, ?)').run(login, email, name, hash);
     const token = jwt.sign({ id: result.lastInsertRowid, login, role: 'artist' }, JWT_SECRET);
     res.json({ token, user: { login, email, name, role: 'artist' } });
   } catch { res.status(409).json({ error: 'Логин или email заняты' }); }
@@ -43,27 +73,68 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   const { login, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE login = ? OR email = ?').get(login, login);
-  if (!user || !(await bcrypt.compare(password, user.password))) 
-    return res.status(401).json({ error: 'Неверный логин или пароль' });
-  
+  if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Неверный логин или пароль' });
   const token = jwt.sign({ id: user.id, login: user.login, role: user.role }, JWT_SECRET);
   res.json({ token, user: { id: user.id, login: user.login, name: user.name, role: user.role } });
 });
 
-// 📦 Releases (Артист)
+// Create Release with Cover
 app.post('/api/releases', auth, (req, res) => {
-  const { title, subtitle, type, artists, genre, status, cover_url, archive_url, metadata } = req.body;
-  const stmt = db.prepare('INSERT INTO releases (user_id, title, subtitle, release_type, artists, genre, status, cover_url, archive_url, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  const result = stmt.run(req.user.id, title, subtitle, type, artists, genre, status, cover_url, archive_url, JSON.stringify(metadata || {}));
-  res.json({ id: result.lastInsertRowid, status });
+  uploadCover(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    
+    const { title, subtitle, type, artists, genre, status, archive_url, metadata } = req.body;
+    const coverUrl = req.file ? `/uploads/covers/${req.file.filename}` : null;
+    
+    const stmt = db.prepare('INSERT INTO releases (user_id, title, subtitle, release_type, artists, genre, status, cover_url, archive_url, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const result = stmt.run(req.user.id, title, subtitle, type, artists, genre, status, coverUrl, archive_url, metadata || '{}');
+    res.json({ id: result.lastInsertRowid, status, cover_url: coverUrl });
+  });
+});
+
+// Upload Track to Release
+app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
+  uploadTrack(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    
+    const { trackTitle, trackArtists, explicit, isrc } = req.body;
+    const audioUrl = req.file ? `/uploads/tracks/${req.file.filename}` : null;
+    const releaseId = req.params.releaseId;
+
+    const release = db.prepare('SELECT metadata FROM releases WHERE id = ? AND user_id = ?').get(releaseId, req.user.id);
+    if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+
+    // БЕЗОПАСНОЕ ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ
+    let meta = {};
+    try {
+      meta = release.metadata ? JSON.parse(release.metadata) : {};
+    } catch (e) {
+      meta = {};
+    }
+    
+    // Если tracks нет, создаем пустой массив
+    if (!Array.isArray(meta.tracks)) {
+      meta.tracks = [];
+    }
+
+    meta.tracks.push({
+      title: trackTitle,
+      artists: trackArtists,
+      explicit: explicit === 'true',
+      isrc: isrc,
+      audio_file: audioUrl
+    });
+
+    db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(meta), releaseId);
+    res.json({ success: true, audio_file: audioUrl });
+  });
 });
 
 app.get('/api/releases', auth, (req, res) => {
-  const releases = db.prepare('SELECT id, title, artists, status, cover_url, created_at FROM releases WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const releases = db.prepare('SELECT id, title, artists, status, cover_url, created_at, metadata, release_type FROM releases WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
   res.json(releases);
 });
 
-// 👑 Admin
 app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
   const releases = db.prepare(`SELECT r.*, u.login as artist_login, u.email as artist_email FROM releases r JOIN users u ON r.user_id = u.id ORDER BY r.created_at DESC`).all();
   res.json(releases);
@@ -75,15 +146,14 @@ app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
   res.json({ success: true });
 });
 
-// 🌱 Seed админа (удалите после первого запуска!)
+// Seed Admin
 (async () => {
   const exists = db.prepare('SELECT id FROM users WHERE login = ?').get('admin');
   if (!exists) {
     const hash = await bcrypt.hash('AdminPass123', 10);
-    db.prepare('INSERT INTO users (login, email, name, password, role) VALUES (?, ?, ?, ?, ?)')
-      .run('admin', 'admin@cdcult.ru', 'Главный Админ', hash, 'admin');
+    db.prepare('INSERT INTO users (login, email, name, password, role) VALUES (?, ?, ?, ?, ?)').run('admin', 'admin@cdcult.ru', 'Главный Админ', hash, 'admin');
     console.log('✅ Админ создан: admin / AdminPass123');
   }
 })();
 
-app.listen(PORT, () => console.log(`🚀 Backend: http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Backend running on http://localhost:${PORT}`));
