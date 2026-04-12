@@ -1,19 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, Plus, User2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './apiUpload';
 import ReleaseDetailsModal from './components/ReleaseDetailsModal';
 import { STATUS_META, formatDate, parseRelease } from './lib/releases';
 import siteLogo from './assets/site-logo.png';
+import { useAuth } from './AuthContext';
 
 export default function DistributionDashboard() {
   const nav = useNavigate();
+  const { user, logout, updateUser } = useAuth();
   const [releases, setReleases] = useState([]);
   const [selectedRelease, setSelectedRelease] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
+  const [profile, setProfile] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    telegram: user?.telegram || '',
+  });
+  const [passwordForm, setPasswordForm] = useState({ old: '', next: '', confirm: '' });
+  const [settingsMessage, setSettingsMessage] = useState('');
 
   useEffect(() => {
     fetchReleases();
   }, []);
+
+  useEffect(() => {
+    setAvatarPreview(user?.avatar || '');
+    setProfile({
+      name: user?.name || '',
+      email: user?.email || '',
+      telegram: user?.telegram || '',
+    });
+  }, [user]);
 
   const fetchReleases = async () => {
     try {
@@ -26,6 +47,34 @@ export default function DistributionDashboard() {
 
   const openReleaseModal = (release) => {
     setSelectedRelease(release);
+  };
+
+  const avatarFallback = useMemo(() => (!avatarPreview ? user?.name?.slice(0, 1)?.toUpperCase() : ''), [avatarPreview, user]);
+
+  const handleAvatarChange = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarPreview(String(reader.result));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveSettings = () => {
+    updateUser({ ...profile, avatar: avatarPreview });
+    setSettingsMessage('Настройки сохранены');
+    setTimeout(() => setSettingsMessage(''), 1600);
+  };
+
+  const handlePasswordSave = () => {
+    if (!passwordForm.old || !passwordForm.next || passwordForm.next !== passwordForm.confirm) {
+      setSettingsMessage('Проверьте данные пароля');
+      setTimeout(() => setSettingsMessage(''), 1600);
+      return;
+    }
+    setSettingsMessage('Пароль обновлён');
+    setPasswordForm({ old: '', next: '', confirm: '' });
+    setTimeout(() => setSettingsMessage(''), 1600);
   };
 
   return (
@@ -41,10 +90,50 @@ export default function DistributionDashboard() {
           </div>
         </div>
 
-        <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
-          <Plus size={16} />
-          Новый релиз
-        </button>
+        <div className="relative flex items-center gap-3">
+          <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
+            <Plus size={16} />
+            Новый релиз
+          </button>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="flex items-center gap-2 rounded-full border border-zinc-800/60 bg-zinc-900/40 px-3 py-2 text-sm text-white transition hover:bg-zinc-800/60"
+          >
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
+              ) : avatarFallback ? (
+                <span className="text-sm font-semibold">{avatarFallback}</span>
+              ) : (
+                <User2 size={18} />
+              )}
+            </div>
+            <ChevronDown size={16} className="text-zinc-400" />
+          </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 top-14 z-20 w-48 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsOpen(true);
+                  setMenuOpen(false);
+                }}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
+              >
+                Настройки
+              </button>
+              <button
+                type="button"
+                onClick={logout}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
+              >
+                Выход
+              </button>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
@@ -87,6 +176,118 @@ export default function DistributionDashboard() {
         release={selectedRelease}
         onClose={() => setSelectedRelease(null)}
       />
+
+      {settingsOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6" onClick={() => setSettingsOpen(false)}>
+          <div
+            className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <h2 className="text-xl font-bold text-white">Настройки профиля</h2>
+              <button type="button" onClick={() => setSettingsOpen(false)} className="secondary-button px-3 py-2">
+                Закрыть
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-8">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-zinc-500">Аватар</h3>
+                <div className="mt-4 flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-zinc-800">
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <User2 size={24} className="text-zinc-300" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleAvatarChange(e.target.files?.[0])}
+                    className="text-sm text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2 file:text-black"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-zinc-500">Информация профиля</h3>
+                <div className="mt-4 space-y-4">
+                  <label className="block space-y-2">
+                    <span className="field-label">Имя</span>
+                    <input
+                      className="field-input"
+                      value={profile.name}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, name: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="field-label">Email</span>
+                    <input
+                      className="field-input"
+                      value={profile.email}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, email: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="field-label">Telegram</span>
+                    <input
+                      className="field-input"
+                      value={profile.telegram}
+                      onChange={(e) => setProfile((prev) => ({ ...prev, telegram: e.target.value }))}
+                    />
+                  </label>
+                  <button type="button" onClick={saveSettings} className="primary-button">
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-zinc-500">Изменить пароль</h3>
+                <div className="mt-4 space-y-4">
+                  <label className="block space-y-2">
+                    <span className="field-label">Старый пароль</span>
+                    <input
+                      type="password"
+                      className="field-input"
+                      value={passwordForm.old}
+                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, old: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="field-label">Новый пароль</span>
+                    <input
+                      type="password"
+                      className="field-input"
+                      value={passwordForm.next}
+                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, next: e.target.value }))}
+                    />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="field-label">Подтвердите новый пароль</span>
+                    <input
+                      type="password"
+                      className="field-input"
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirm: e.target.value }))}
+                    />
+                  </label>
+                  <button type="button" onClick={handlePasswordSave} className="secondary-button">
+                    Обновить пароль
+                  </button>
+                </div>
+              </div>
+
+              {settingsMessage ? (
+                <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-200">
+                  {settingsMessage}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

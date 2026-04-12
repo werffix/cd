@@ -123,7 +123,7 @@ export default function ReleaseDetailsModal({
                       <button
                         key={`${currentTrack.title}-${index}`}
                         type="button"
-                        onClick={() => setSelectedTrackIndex(index)}
+                        onClick={() => setSelectedTrackIndex((prev) => (prev === index ? null : index))}
                         className={`group flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
                           isActive
                             ? 'border-zinc-700 bg-zinc-800/60'
@@ -177,6 +177,33 @@ export default function ReleaseDetailsModal({
                         Аудиофайл для этого трека не найден.
                       </div>
                     )}
+
+                    <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
+                      <div>
+                        <p className="text-zinc-600">Название трека</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.title}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">Артисты (в треке)</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.artists}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">Авторы текста</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">Авторы музыки</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">ISRC</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">Ненормативная лексика</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.explicit ? 'Да' : 'Нет'}</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="border-t border-zinc-800/50 pt-6">
@@ -188,22 +215,6 @@ export default function ReleaseDetailsModal({
                           <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
                         </div>
                       ))}
-                      <div>
-                        <p className="text-zinc-600">ISRC</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-600">Ненормативная лексика</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.explicit ? 'Да' : 'Нет'}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-600">Авторы текста</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-600">Авторы музыки</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
-                      </div>
                     </div>
                   </div>
                 </>

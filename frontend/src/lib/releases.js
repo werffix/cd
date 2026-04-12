@@ -1,8 +1,8 @@
 export const STATUS_META = {
   draft: { label: 'Черновик', badgeClass: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-400' },
   moderation: { label: 'На рассмотрении', badgeClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400' },
-  delivered: { label: 'Не отгружен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
-  shipped: { label: 'Отправлен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
+  delivered: { label: 'Доставлен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
+  shipped: { label: 'Доставлен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
   rejected: { label: 'Отклонён', badgeClass: 'border-red-500/20 bg-red-500/10 text-red-400' },
 };
 
@@ -10,8 +10,8 @@ export const ADMIN_FILTERS = [
   { key: 'all', label: 'Все' },
   { key: 'moderation', label: 'На рассмотрении' },
   { key: 'rejected', label: 'Отклонен' },
-  { key: 'delivered', label: 'Не отгружен' },
-  { key: 'shipped', label: 'Отгружен' },
+  { key: 'delivered', label: 'Доставлен' },
+  { key: 'shipped', label: 'Доставлен' },
 ];
 
 export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');

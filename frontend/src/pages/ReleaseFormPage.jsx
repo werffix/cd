@@ -165,7 +165,7 @@ export default function ReleaseFormPage() {
     setFormData((prev) => ({ ...prev, tracks: nextTracks.length ? nextTracks : [{ ...INITIAL_TRACK }] }));
   };
 
-  const validateStep = (currentStep) => {
+  const getStepErrors = (currentStep) => {
     const nextErrors = {};
     if (currentStep === 1) {
       if (!formData.release_title) nextErrors.release_title = 'Обязательно';
@@ -195,9 +195,27 @@ export default function ReleaseFormPage() {
       nextErrors.agreement = 'Нужно подтверждение';
     }
 
+    return nextErrors;
+  };
+
+  const validateStep = (currentStep) => {
+    const nextErrors = getStepErrors(currentStep);
     setErrors(nextErrors);
     setStepErrors((prev) => ({ ...prev, [currentStep]: Object.keys(nextErrors).length > 0 }));
     return Object.keys(nextErrors).length === 0;
+  };
+
+  const validateAllSteps = () => {
+    const allErrors = {};
+    const nextStepErrors = {};
+    [1, 2, 3, 4].forEach((stepIndex) => {
+      const stepErrors = getStepErrors(stepIndex);
+      nextStepErrors[stepIndex] = Object.keys(stepErrors).length > 0;
+      Object.assign(allErrors, stepErrors);
+    });
+    setErrors(allErrors);
+    setStepErrors((prev) => ({ ...prev, ...nextStepErrors }));
+    return Object.keys(allErrors).length === 0;
   };
 
   const nextStep = () => {
@@ -207,7 +225,11 @@ export default function ReleaseFormPage() {
   const prevStep = () => setStep((value) => Math.max(value - 1, 1));
 
   const submitToApi = async () => {
-    if (!validateStep(4)) return;
+    if (!validateAllSteps()) {
+      const firstInvalid = [1, 2, 3, 4].find((stepIndex) => Object.keys(getStepErrors(stepIndex)).length > 0);
+      if (firstInvalid) setStep(firstInvalid);
+      return;
+    }
     setIsSubmitting(true);
     setSubmitMessage('');
 
@@ -275,20 +297,18 @@ export default function ReleaseFormPage() {
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a] text-zinc-50">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
-        <div className="flex items-center justify-between">
-          <div />
-          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button px-3 py-3">
+        <div className="mt-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
+            <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
+          </div>
+          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button mt-1 px-3 py-3">
             <X size={16} />
           </button>
         </div>
 
-        <div className="mt-6">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
-          <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
-        </div>
-
         <div className="mt-8 flex w-full items-center justify-center">
-          <div className="flex w-full max-w-5xl items-center justify-between gap-6">
+          <div className="flex w-full max-w-4xl items-center justify-between gap-6">
             {[
               { title: 'Данные релиза', subtitle: 'Основная информация' },
               { title: 'Треклист', subtitle: 'Треки и архив' },
@@ -306,7 +326,7 @@ export default function ReleaseFormPage() {
                     className="flex flex-col items-center text-center"
                   >
                     <div
-                      className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold transition ${
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition ${
                         isActive
                           ? 'bg-white text-black'
                           : isError
@@ -317,7 +337,7 @@ export default function ReleaseFormPage() {
                       {currentStep}
                     </div>
                     <div className="mt-3">
-                      <p className={`text-base font-semibold ${isActive ? 'text-white' : 'text-zinc-400'}`}>{item.title}</p>
+                      <p className={`text-sm font-semibold ${isActive ? 'text-white' : 'text-zinc-400'}`}>{item.title}</p>
                       <p className="text-sm text-zinc-500">{item.subtitle}</p>
                     </div>
                   </button>
@@ -330,7 +350,7 @@ export default function ReleaseFormPage() {
 
         <div className="mt-6 panel-card p-6">
           {step === 1 && (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-5">
                 <Field label="Название релиза *" name="release_title" value={formData.release_title} onChange={handleChange} error={errors.release_title} />
                 <Field label="Подзаголовок" name="subtitle" value={formData.subtitle} onChange={handleChange} />
                 <SelectField label="Тип релиза *" name="release_type" value={formData.release_type} onChange={handleChange}>
@@ -340,7 +360,7 @@ export default function ReleaseFormPage() {
                 </SelectField>
                 <Field label="Артисты *" name="artists" value={formData.artists} onChange={handleChange} error={errors.artists} />
 
-                <label className="block space-y-2 md:col-span-2">
+                <label className="block space-y-2">
                   <span className="field-label">Основной жанр *</span>
                   <select name="main_genre" value={formData.main_genre} onChange={handleChange} className="field-input">
                     <option value="">Выберите жанр</option>
@@ -352,7 +372,7 @@ export default function ReleaseFormPage() {
                 </label>
 
                 {selectedGenre?.subgenres?.length ? (
-                  <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4 md:col-span-2">
+                  <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
                     <p className="text-sm font-semibold text-white">Поджанр</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {selectedGenre.subgenres.map((sub) => (
@@ -441,7 +461,7 @@ export default function ReleaseFormPage() {
                       )}
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-4">
                       <Field label="Название *" value={track.track_title} onChange={(e) => handleTrackChange(index, 'track_title', e.target.value)} error={errors[`track_${index}_title`]} />
                       <Field label="Артисты *" value={track.track_artists} onChange={(e) => handleTrackChange(index, 'track_artists', e.target.value)} error={errors[`track_${index}_artists`]} />
                       <Field label="Авторы текста" value={track.lyrics_authors} onChange={(e) => handleTrackChange(index, 'lyrics_authors', e.target.value)} />
@@ -475,7 +495,7 @@ export default function ReleaseFormPage() {
             )}
 
             {step === 3 && (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-5">
                 <Field
                   labelNode={(
                     <>
@@ -492,7 +512,6 @@ export default function ReleaseFormPage() {
                   value={formData.project_demo_link}
                   onChange={handleChange}
                   error={errors.project_demo_link}
-                  wrapperClassName="md:col-span-2"
                 />
                 <Field label="Telegram *" name="telegram" value={formData.telegram} onChange={handleChange} error={errors.telegram} />
                 <SelectField label="Карточка/профиль артиста в Spotify *" name="spotify_profile" value={formData.spotify_profile} onChange={handleChange} error={errors.spotify_profile}>
@@ -505,10 +524,10 @@ export default function ReleaseFormPage() {
                   <option value="exists">Есть</option>
                   <option value="already_submitted">Указывал ранее</option>
                 </SelectField>
-                <label className="block space-y-2 md:col-span-2">
-                      <span className="field-label">Комментарий модератору</span>
-                      <textarea name="comment" value={formData.comment} onChange={handleChange} rows={5} className="field-textarea" />
-                    </label>
+                <label className="block space-y-2">
+                  <span className="field-label">Комментарий модератору</span>
+                  <textarea name="comment" value={formData.comment} onChange={handleChange} rows={5} className="field-textarea" />
+                </label>
               </div>
             )}
 

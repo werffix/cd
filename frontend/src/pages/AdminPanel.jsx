@@ -67,7 +67,7 @@ export default function AdminPanel() {
             className={`secondary-button ${baseClass}`}
           >
             <Send size={15} />
-            Отправлен
+            Доставлен
           </button>
         ) : null}
         {release.status !== 'rejected' ? (
