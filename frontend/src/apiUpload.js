@@ -21,4 +21,18 @@ export const uploadTrackToRelease = async (releaseId, formData) => {
   });
 };
 
+export const updateRelease = async (releaseId, formData, onUploadProgress) => {
+  return api.put(`/releases/${releaseId}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+  });
+};
+
+export const uploadTrackToReleaseWithProgress = async (releaseId, formData, onUploadProgress) => {
+  return api.post(`/releases/${releaseId}/tracks`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+  });
+};
+
 export default api;

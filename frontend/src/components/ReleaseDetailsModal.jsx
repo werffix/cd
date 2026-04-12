@@ -47,6 +47,9 @@ export default function ReleaseDetailsModal({
     { label: 'Spotify', value: profileLabel(release.metadata?.spotify_profile) },
     { label: 'Apple Music', value: profileLabel(release.metadata?.apple_music_profile) },
   ];
+  if (release.metadata?.moderator_comment) {
+    releaseFields.push({ label: 'Комментарий модератора', value: release.metadata.moderator_comment });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
@@ -188,15 +191,15 @@ export default function ReleaseDetailsModal({
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.artists}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-600">Авторы текста</p>
+                        <p className="text-zinc-600">ФИО авторов текста</p>
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-600">Авторы музыки</p>
+                        <p className="text-zinc-600">ФИО авторов музыки</p>
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
                       </div>
                       <div>
-                        <p className="text-zinc-600">ISRC</p>
+                        <p className="text-zinc-600">ISRC (опционально)</p>
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
                       </div>
                       <div>

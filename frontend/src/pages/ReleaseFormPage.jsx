@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CircleHelp,
@@ -10,8 +10,9 @@ import {
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import api, { createReleaseWithCover, uploadTrackToRelease } from '../apiUpload';
+import { createReleaseWithCover, updateRelease, uploadTrackToReleaseWithProgress } from '../apiUpload';
 import { GENRE_TREE, buildGenreLabel, findGenreNode } from '../data/genres';
+import { useAuth } from '../AuthContext';
 
 const INITIAL_TRACK = {
   track_title: '',
@@ -92,6 +93,7 @@ const SelectField = ({ label, name, error, children, className = '', wrapperClas
 
 export default function ReleaseFormPage() {
   const nav = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     release_title: '',
@@ -105,9 +107,11 @@ export default function ReleaseFormPage() {
     upc: '',
     tracks: [{ ...INITIAL_TRACK }],
     project_demo_link: '',
-    telegram: '',
+    telegram: user?.telegram || '',
     spotify_profile: 'create',
+    spotify_link: '',
     apple_music_profile: 'create',
+    apple_music_link: '',
     comment: '',
     agreement: false,
     cover_image: null,
@@ -115,11 +119,30 @@ export default function ReleaseFormPage() {
   const [coverPreview, setCoverPreview] = useState('');
   const [errors, setErrors] = useState({});
   const [stepErrors, setStepErrors] = useState({ 1: false, 2: false, 3: false, 4: false });
+  const [draftReleaseId, setDraftReleaseId] = useState(null);
+  const [trackUploads, setTrackUploads] = useState([{ progress: 0, status: 'idle', filename: '' }]);
+  const [isDraftCreating, setIsDraftCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
 
   const selectedGenre = useMemo(() => findGenreNode(formData.main_genre), [formData.main_genre]);
   const currentReleaseDate = formData.release_date_type === 'asap' ? getAutoReleaseDateValue() : formData.release_date;
+
+  useEffect(() => {
+    if (user?.telegram && !formData.telegram) {
+      setFormData((prev) => ({ ...prev, telegram: user.telegram }));
+    }
+  }, [user, formData.telegram]);
+
+  useEffect(() => {
+    setTrackUploads((prev) => {
+      if (prev.length === formData.tracks.length) return prev;
+      if (prev.length < formData.tracks.length) {
+        return [...prev, ...Array.from({ length: formData.tracks.length - prev.length }, () => ({ progress: 0, status: 'idle', filename: '' }))];
+      }
+      return prev.slice(0, formData.tracks.length);
+    });
+  }, [formData.tracks.length]);
 
   const handleChange = async (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -142,6 +165,16 @@ export default function ReleaseFormPage() {
       setFormData((prev) => ({ ...prev, main_genre: value, sub_genre: '' }));
       return;
     }
+    if (name === 'spotify_profile') {
+      setFormData((prev) => ({ ...prev, spotify_profile: value, spotify_link: value === 'exists' ? prev.spotify_link : '' }));
+      if (errors.spotify_profile) setErrors((prev) => ({ ...prev, spotify_profile: null }));
+      return;
+    }
+    if (name === 'apple_music_profile') {
+      setFormData((prev) => ({ ...prev, apple_music_profile: value, apple_music_link: value === 'exists' ? prev.apple_music_link : '' }));
+      if (errors.apple_music_profile) setErrors((prev) => ({ ...prev, apple_music_profile: null }));
+      return;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -156,6 +189,103 @@ export default function ReleaseFormPage() {
       nextTracks[index] = { ...nextTracks[index], [field]: value };
       return { ...prev, tracks: nextTracks };
     });
+  };
+
+  const buildMetadata = () => ({
+    tracks: formData.tracks.map((track) => ({
+      track_title: track.track_title,
+      track_artists: track.track_artists,
+      lyrics_authors: track.lyrics_authors,
+      music_authors: track.music_authors,
+      explicit: track.explicit,
+      isrc: track.isrc,
+    })),
+    telegram: formData.telegram,
+    demo: formData.project_demo_link,
+    upc: formData.upc,
+    comment: formData.comment,
+    release_date: currentReleaseDate,
+    release_date_type: formData.release_date_type,
+    spotify_profile: formData.spotify_profile,
+    spotify_link: formData.spotify_link,
+    apple_music_profile: formData.apple_music_profile,
+    apple_music_link: formData.apple_music_link,
+    main_genre: formData.main_genre,
+    sub_genre: formData.sub_genre,
+  });
+
+  const ensureDraftRelease = async () => {
+    if (draftReleaseId) return draftReleaseId;
+    setIsDraftCreating(true);
+    try {
+      const data = new FormData();
+      data.append('title', formData.release_title);
+      data.append('subtitle', formData.subtitle);
+      data.append('type', formData.release_type);
+      data.append('artists', formData.artists);
+      data.append('genre', buildGenreLabel(formData.main_genre, formData.sub_genre));
+      data.append('status', 'draft');
+      data.append('archive_url', '');
+      data.append('metadata', JSON.stringify(buildMetadata()));
+      if (formData.cover_image) data.append('cover', formData.cover_image);
+      const res = await createReleaseWithCover(data);
+      setDraftReleaseId(res.data.id);
+      return res.data.id;
+    } finally {
+      setIsDraftCreating(false);
+    }
+  };
+
+  const handleTrackAudioSelect = async (index, file) => {
+    handleTrackChange(index, 'audio_file_obj', file || null);
+    if (!file) return;
+
+    setTrackUploads((prev) => {
+      const next = [...prev];
+      next[index] = { progress: 0, status: 'uploading', filename: file.name };
+      return next;
+    });
+
+    try {
+      const releaseId = await ensureDraftRelease();
+      const trackData = new FormData();
+      trackData.append('track_audio', file);
+      trackData.append('trackIndex', index);
+      trackData.append('trackTitle', formData.tracks[index]?.track_title || '');
+      trackData.append('trackArtists', formData.tracks[index]?.track_artists || '');
+      trackData.append('lyricsAuthors', formData.tracks[index]?.lyrics_authors || '');
+      trackData.append('musicAuthors', formData.tracks[index]?.music_authors || '');
+      trackData.append('explicit', formData.tracks[index]?.explicit || false);
+      trackData.append('isrc', formData.tracks[index]?.isrc || '');
+
+      await uploadTrackToReleaseWithProgress(releaseId, trackData, (event) => {
+        if (!event.total) return;
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setTrackUploads((prev) => {
+          const next = [...prev];
+          next[index] = { ...next[index], progress: percent };
+          return next;
+        });
+      });
+
+      setTrackUploads((prev) => {
+        const next = [...prev];
+        next[index] = { ...next[index], progress: 100, status: 'done' };
+        return next;
+      });
+
+      if (errors[`track_${index}_audio`]) {
+        setErrors((prev) => ({ ...prev, [`track_${index}_audio`]: null }));
+      }
+    } catch (error) {
+      setTrackUploads((prev) => {
+        const next = [...prev];
+        next[index] = { ...next[index], status: 'error' };
+        return next;
+      });
+      setSubmitMessage(`Не удалось загрузить трек: ${error.response?.data?.error || error.message}`);
+      setTimeout(() => setSubmitMessage(''), 2000);
+    }
   };
 
   const addTrack = () => setFormData((prev) => ({ ...prev, tracks: [...prev.tracks, { ...INITIAL_TRACK }] }));
@@ -180,6 +310,8 @@ export default function ReleaseFormPage() {
       formData.tracks.forEach((track, index) => {
         if (!track.track_title) nextErrors[`track_${index}_title`] = 'Название обязательно';
         if (!track.track_artists) nextErrors[`track_${index}_artists`] = 'Артисты обязательны';
+        if (!track.lyrics_authors) nextErrors[`track_${index}_lyrics`] = 'Укажите авторов';
+        if (!track.music_authors) nextErrors[`track_${index}_music`] = 'Укажите авторов';
         if (!track.audio_file_obj) nextErrors[`track_${index}_audio`] = 'Загрузите WAV или FLAC';
       });
     }
@@ -189,6 +321,8 @@ export default function ReleaseFormPage() {
       if (!formData.telegram) nextErrors.telegram = 'Обязательно';
       if (!formData.spotify_profile) nextErrors.spotify_profile = 'Обязательно';
       if (!formData.apple_music_profile) nextErrors.apple_music_profile = 'Обязательно';
+      if (formData.spotify_profile === 'exists' && !formData.spotify_link) nextErrors.spotify_link = 'Укажите ссылку';
+      if (formData.apple_music_profile === 'exists' && !formData.apple_music_link) nextErrors.apple_music_link = 'Укажите ссылку';
     }
 
     if (currentStep === 4 && !formData.agreement) {
@@ -218,8 +352,18 @@ export default function ReleaseFormPage() {
     return Object.keys(allErrors).length === 0;
   };
 
-  const nextStep = () => {
-    if (validateStep(step)) setStep((value) => Math.min(value + 1, 4));
+  const nextStep = async () => {
+    if (!validateStep(step)) return;
+    if (step === 1 && !draftReleaseId) {
+      try {
+        await ensureDraftRelease();
+      } catch (error) {
+        setSubmitMessage(`Не удалось создать черновик: ${error.response?.data?.error || error.message}`);
+        setTimeout(() => setSubmitMessage(''), 2000);
+        return;
+      }
+    }
+    setStep((value) => Math.min(value + 1, 4));
   };
 
   const prevStep = () => setStep((value) => Math.max(value - 1, 1));
@@ -228,6 +372,11 @@ export default function ReleaseFormPage() {
     if (!validateAllSteps()) {
       const firstInvalid = [1, 2, 3, 4].find((stepIndex) => Object.keys(getStepErrors(stepIndex)).length > 0);
       if (firstInvalid) setStep(firstInvalid);
+      return;
+    }
+    if (trackUploads.some((item) => item.status === 'uploading')) {
+      setSubmitMessage('Дождитесь завершения загрузки треков');
+      setTimeout(() => setSubmitMessage(''), 2000);
       return;
     }
     setIsSubmitting(true);
@@ -242,37 +391,29 @@ export default function ReleaseFormPage() {
       data.append('genre', buildGenreLabel(formData.main_genre, formData.sub_genre));
       data.append('status', 'moderation');
       data.append('archive_url', '');
-      data.append(
-        'metadata',
-        JSON.stringify({
-          tracks: formData.tracks.map((track) => ({
-            track_title: track.track_title,
-            track_artists: track.track_artists,
-            lyrics_authors: track.lyrics_authors,
-            music_authors: track.music_authors,
-            explicit: track.explicit,
-            isrc: track.isrc,
-          })),
-          telegram: formData.telegram,
-          demo: formData.project_demo_link,
-          upc: formData.upc,
-          comment: formData.comment,
-          release_date: currentReleaseDate,
-          release_date_type: formData.release_date_type,
-          spotify_profile: formData.spotify_profile,
-          apple_music_profile: formData.apple_music_profile,
-          main_genre: formData.main_genre,
-          sub_genre: formData.sub_genre,
-        }),
-      );
-
+      data.append('metadata', JSON.stringify(buildMetadata()));
       if (formData.cover_image) data.append('cover', formData.cover_image);
 
-      const res = await createReleaseWithCover(data);
-      const releaseId = res.data.id;
+      let releaseId = draftReleaseId;
+      if (releaseId) {
+        await updateRelease(releaseId, data);
+      } else {
+        const res = await createReleaseWithCover(data);
+        releaseId = res.data.id;
+        setDraftReleaseId(releaseId);
+      }
 
       for (let i = 0; i < formData.tracks.length; i += 1) {
         const track = formData.tracks[i];
+        if (!track.audio_file_obj) continue;
+        if (trackUploads[i]?.status === 'done') continue;
+
+        setTrackUploads((prev) => {
+          const next = [...prev];
+          next[i] = { ...next[i], status: 'uploading', progress: 0, filename: track.audio_file_obj.name };
+          return next;
+        });
+
         const trackData = new FormData();
         trackData.append('track_audio', track.audio_file_obj);
         trackData.append('trackIndex', i);
@@ -282,7 +423,22 @@ export default function ReleaseFormPage() {
         trackData.append('musicAuthors', track.music_authors);
         trackData.append('explicit', track.explicit);
         trackData.append('isrc', track.isrc);
-        await uploadTrackToRelease(releaseId, trackData);
+
+        await uploadTrackToReleaseWithProgress(releaseId, trackData, (event) => {
+          if (!event.total) return;
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setTrackUploads((prev) => {
+            const next = [...prev];
+            next[i] = { ...next[i], progress: percent };
+            return next;
+          });
+        });
+
+        setTrackUploads((prev) => {
+          const next = [...prev];
+          next[i] = { ...next[i], progress: 100, status: 'done' };
+          return next;
+        });
       }
 
       setSubmitMessage('Релиз успешно отправлен');
@@ -297,12 +453,10 @@ export default function ReleaseFormPage() {
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a] text-zinc-50">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
-        <div className="mt-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
-            <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
-          </div>
-          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button mt-2 px-3 py-3">
+        <div className="relative mt-6 flex flex-col items-center text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
+          <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
+          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button absolute right-0 top-1 px-3 py-3">
             <X size={16} />
           </button>
         </div>
@@ -348,7 +502,7 @@ export default function ReleaseFormPage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-6 w-full max-w-5xl panel-card p-6">
+        <div className="mx-auto mt-6 w-full max-w-4xl panel-card p-6">
           {step === 1 && (
               <div className="space-y-5">
                 <Field label="Название релиза *" name="release_title" value={formData.release_title} onChange={handleChange} error={errors.release_title} />
@@ -358,7 +512,7 @@ export default function ReleaseFormPage() {
                   <option value="ep">EP</option>
                   <option value="album">Альбом</option>
                 </SelectField>
-                <Field label="Артисты *" name="artists" value={formData.artists} onChange={handleChange} error={errors.artists} />
+                <Field label="Основные артисты *" name="artists" value={formData.artists} onChange={handleChange} error={errors.artists} />
 
                 <label className="block space-y-2">
                   <span className="field-label">Основной жанр *</span>
@@ -393,11 +547,11 @@ export default function ReleaseFormPage() {
                   </div>
                 ) : null}
 
-                <Field label="UPC" name="upc" value={formData.upc} onChange={handleChange} />
+                <Field label="UPC (опционально)" name="upc" value={formData.upc} onChange={handleChange} />
 
                 <div className="space-y-3">
                   <span className="field-label">Дата релиза *</span>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 max-w-fit">
                     <button
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, release_date_type: 'asap', release_date: getAutoReleaseDateValue() }))}
@@ -420,19 +574,25 @@ export default function ReleaseFormPage() {
 
                 <div className="space-y-2">
                   <span className="field-label">Загрузите свою обложку *</span>
-                  <div className="rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6">
-                    <div className="mb-3 flex items-center gap-2 text-zinc-300">
-                      <Upload size={16} />
-                      Загрузите свою обложку
+                  <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 md:flex-row md:items-center md:justify-between">
+                    <div className="flex-1">
+                      <div className="mb-3 flex items-center gap-2 text-zinc-300">
+                        <Upload size={16} />
+                        Загрузите свою обложку
+                      </div>
+                      <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
+                      {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                     </div>
-                    <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
-                    {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
+                    <div className="h-28 w-28 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
+                      {coverPreview ? (
+                        <img src={coverPreview} alt="Preview" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                          Preview
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {coverPreview ? (
-                    <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
-                      <img src={coverPreview} alt="Preview" className="aspect-square w-full rounded-lg object-cover" />
-                    </div>
-                  ) : null}
                 </div>
               </div>
             )}
@@ -462,16 +622,35 @@ export default function ReleaseFormPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <Field label="Название *" value={track.track_title} onChange={(e) => handleTrackChange(index, 'track_title', e.target.value)} error={errors[`track_${index}_title`]} />
-                      <Field label="Артисты *" value={track.track_artists} onChange={(e) => handleTrackChange(index, 'track_artists', e.target.value)} error={errors[`track_${index}_artists`]} />
-                      <Field label="Авторы текста" value={track.lyrics_authors} onChange={(e) => handleTrackChange(index, 'lyrics_authors', e.target.value)} />
-                      <Field label="Авторы музыки" value={track.music_authors} onChange={(e) => handleTrackChange(index, 'music_authors', e.target.value)} />
-                      <Field label="ISRC" value={track.isrc} onChange={(e) => handleTrackChange(index, 'isrc', e.target.value)} />
+                      <Field label="Название трека *" value={track.track_title} onChange={(e) => handleTrackChange(index, 'track_title', e.target.value)} error={errors[`track_${index}_title`]} />
+                      <Field label="Артисты (в треке) *" value={track.track_artists} onChange={(e) => handleTrackChange(index, 'track_artists', e.target.value)} error={errors[`track_${index}_artists`]} />
+                      <Field label="ФИО авторов текста *" value={track.lyrics_authors} onChange={(e) => handleTrackChange(index, 'lyrics_authors', e.target.value)} error={errors[`track_${index}_lyrics`]} />
+                      <Field label="ФИО авторов музыки *" value={track.music_authors} onChange={(e) => handleTrackChange(index, 'music_authors', e.target.value)} error={errors[`track_${index}_music`]} />
+                      <Field label="ISRC (опционально)" value={track.isrc} onChange={(e) => handleTrackChange(index, 'isrc', e.target.value)} />
 
                       <label className="block space-y-2">
                         <span className="field-label">Аудио WAV / FLAC *</span>
                         <div className="rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6">
-                          <input type="file" accept=".wav,.flac,audio/wav,audio/flac" onChange={(e) => handleTrackChange(index, 'audio_file_obj', e.target.files?.[0] || null)} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
+                          <div className="flex flex-wrap items-center justify-between gap-4">
+                            <input
+                              type="file"
+                              accept=".wav,.flac,audio/wav,audio/flac"
+                              onChange={(e) => handleTrackAudioSelect(index, e.target.files?.[0] || null)}
+                              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black sm:w-auto"
+                            />
+                            <div className="w-full max-w-xs flex-1 sm:max-w-[240px]">
+                              <div className="flex items-center justify-between text-xs text-zinc-400">
+                                <span className="truncate">{trackUploads[index]?.filename || 'Файл не выбран'}</span>
+                                <span>{trackUploads[index]?.progress || 0}%</span>
+                              </div>
+                              <div className="mt-2 h-2 w-full rounded-full bg-zinc-800">
+                                <div
+                                  className={`h-2 rounded-full transition ${trackUploads[index]?.status === 'error' ? 'bg-red-400' : 'bg-white'}`}
+                                  style={{ width: `${trackUploads[index]?.progress || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                           {errors[`track_${index}_audio`] ? <p className="mt-2 text-xs text-red-300">{errors[`track_${index}_audio`]}</p> : null}
                         </div>
                       </label>
@@ -498,15 +677,15 @@ export default function ReleaseFormPage() {
               <div className="space-y-5">
                 <Field
                   labelNode={(
-                    <>
+                    <span className="relative inline-flex items-center gap-2">
                       Ссылка на демо / договор *
-                      <span
-                        title="Ссылка на видеозапись проекта (с демонстрацией дорожек баса, мелодии и кика) или договор на биты"
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 text-slate-400"
-                      >
+                      <span className="group relative inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/15 text-slate-400">
                         <CircleHelp size={12} />
+                        <span className="pointer-events-none absolute left-1/2 top-8 z-10 w-64 -translate-x-1/2 rounded-lg border border-zinc-700 bg-[#121212] px-3 py-2 text-xs text-zinc-200 opacity-0 shadow-lg transition group-hover:opacity-100">
+                          Ссылка на видеозапись проекта (с демонстрацией дорожек баса, мелодии и кика) или договор на биты
+                        </span>
                       </span>
-                    </>
+                    </span>
                   )}
                   name="project_demo_link"
                   value={formData.project_demo_link}
@@ -519,11 +698,17 @@ export default function ReleaseFormPage() {
                   <option value="exists">Есть</option>
                   <option value="already_submitted">Указывал ранее</option>
                 </SelectField>
+                {formData.spotify_profile === 'exists' ? (
+                  <Field label="Ссылка на карточку Spotify *" name="spotify_link" value={formData.spotify_link} onChange={handleChange} error={errors.spotify_link} />
+                ) : null}
                 <SelectField label="Карточка/профиль артиста в Apple Music *" name="apple_music_profile" value={formData.apple_music_profile} onChange={handleChange} error={errors.apple_music_profile}>
                   <option value="create">Создать</option>
                   <option value="exists">Есть</option>
                   <option value="already_submitted">Указывал ранее</option>
                 </SelectField>
+                {formData.apple_music_profile === 'exists' ? (
+                  <Field label="Ссылка на карточку Apple Music *" name="apple_music_link" value={formData.apple_music_link} onChange={handleChange} error={errors.apple_music_link} />
+                ) : null}
                 <label className="block space-y-2">
                   <span className="field-label">Комментарий модератору</span>
                   <textarea name="comment" value={formData.comment} onChange={handleChange} rows={5} className="field-textarea" />
@@ -593,11 +778,13 @@ export default function ReleaseFormPage() {
             </div>
         </div>
 
-        {isSubmitting ? (
+        {isSubmitting || isDraftCreating ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] px-8 py-6 text-center">
               <Loader2 className="mx-auto mb-3 animate-spin text-white" size={28} />
-              <p className="text-sm text-zinc-300">Загрузка треков, подождите немного</p>
+              <p className="text-sm text-zinc-300">
+                {isDraftCreating ? 'Создаем черновик релиза' : 'Загрузка треков, подождите немного'}
+              </p>
             </div>
           </div>
         ) : null}
