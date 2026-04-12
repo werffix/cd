@@ -84,7 +84,7 @@ export default function ReleaseDetailsModal({
                 {statusMeta.label}
               </span>
               {release.metadata?.moderator_comment ? (
-                <span className="inline-flex w-full items-center justify-center rounded-lg border border-blue-400/20 bg-blue-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue-200">
+                <span className="inline-flex w-full items-center justify-center rounded-lg border border-blue-500 bg-blue-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white">
                   Комм. от модератора
                 </span>
               ) : null}

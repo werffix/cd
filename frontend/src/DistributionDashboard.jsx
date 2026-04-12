@@ -181,7 +181,7 @@ export default function DistributionDashboard() {
                   </div>
                   {release.metadata?.moderator_comment ? (
                     <div className="absolute bottom-3 left-3">
-                      <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-200">
+                      <span className="rounded-full border border-blue-500 bg-blue-500 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         Комм. от модератора
                       </span>
                     </div>
