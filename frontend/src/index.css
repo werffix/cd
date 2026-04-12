@@ -1,7 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-darkbg text-white font-["Montserrat"] antialiased;
+@layer base {
+  :root {
+    color-scheme: dark;
+    --bg: 0 0% 4%;
+    --bg-soft: 0 0% 4%;
+    --surface: 0 0% 6%;
+    --surface-2: 0 0% 9%;
+    --line: 0 0% 18%;
+    --text: 210 33% 97%;
+    --muted: 217 12% 66%;
+    --accent: 0 0% 100%;
+    --success: 142 72% 48%;
+    --warning: 40 96% 56%;
+    --danger: 0 84% 60%;
+  }
+
+  * {
+    @apply border-white/10;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: #0a0a0a;
+    color: hsl(var(--text));
+    @apply min-h-screen antialiased;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  ::selection {
+    @apply bg-white/20 text-white;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-transparent text-white;
+  }
+
+  .glass-card {
+    @apply rounded-[28px] border border-white/10 bg-[#0a0a0a] shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl;
+  }
+
+  .panel-card {
+    @apply rounded-[24px] border border-white/10 bg-[#0a0a0a] shadow-[0_18px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl;
+  }
+
+  .soft-card {
+    @apply rounded-[22px] border border-white/10 bg-[#0a0a0a] backdrop-blur-md;
+  }
+
+  .brand-badge {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white text-black shadow-[0_10px_30px_rgba(255,255,255,0.18)];
+  }
+
+  .section-title {
+    @apply text-[clamp(1.8rem,3vw,3.5rem)] font-extrabold tracking-[-0.04em] text-white;
+  }
+
+  .section-subtitle {
+    @apply max-w-xl text-sm leading-6 text-slate-300 sm:text-base;
+  }
+
+  .field-label {
+    @apply text-sm font-semibold tracking-wide text-slate-200;
+  }
+
+  .field-input {
+    @apply w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-white/30 focus:bg-white/10 focus:ring-2 focus:ring-white/10;
+  }
+
+  .field-textarea {
+    @apply field-input min-h-[120px] resize-y;
+  }
+
+  .primary-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 transition hover:scale-[1.01] hover:bg-slate-100 active:scale-[0.99];
+  }
+
+  .secondary-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold;
+  }
 }
