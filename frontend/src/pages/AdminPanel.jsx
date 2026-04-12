@@ -305,6 +305,13 @@ export default function AdminPanel() {
                             {statusMeta.label}
                           </span>
                         </div>
+                        {release.metadata?.moderator_comment ? (
+                          <div className="absolute bottom-3 left-3">
+                            <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-200">
+                              Комм. от модератора
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="space-y-4 px-5 pb-5 pt-4">
                     <div>

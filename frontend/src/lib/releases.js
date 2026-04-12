@@ -1,10 +1,10 @@
 export const STATUS_META = {
-  draft: { label: 'Черновик', badgeClass: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-400' },
-  moderation: { label: 'На рассмотрении', badgeClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400' },
-  delivered: { label: 'Ожидает доставки', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
-  shipped: { label: 'Доставлен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
-  revoked: { label: 'Отозван', badgeClass: 'border-rose-500/20 bg-rose-500/10 text-rose-300' },
-  rejected: { label: 'Отклонён', badgeClass: 'border-red-500/20 bg-red-500/10 text-red-400' },
+  draft: { label: 'Черновик', badgeClass: 'border-zinc-500/15 bg-zinc-500/5 text-zinc-400' },
+  moderation: { label: 'На рассмотрении', badgeClass: 'border-amber-500/15 bg-amber-500/5 text-amber-300' },
+  delivered: { label: 'Ожидает доставки', badgeClass: 'border-emerald-500/15 bg-emerald-500/5 text-emerald-300' },
+  shipped: { label: 'Доставлен', badgeClass: 'border-emerald-500/15 bg-emerald-500/5 text-emerald-300' },
+  revoked: { label: 'Отозван', badgeClass: 'border-rose-500/15 bg-rose-500/5 text-rose-300' },
+  rejected: { label: 'Отклонён', badgeClass: 'border-red-500/15 bg-red-500/5 text-red-300' },
 };
 
 export const ADMIN_FILTERS = [

@@ -9,8 +9,8 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { createReleaseWithCover, updateRelease, uploadTrackToReleaseWithProgress } from '../apiUpload';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import api, { createReleaseWithCover, updateRelease, uploadTrackToReleaseWithProgress } from '../apiUpload';
 import { GENRE_TREE, buildGenreLabel, findGenreNode } from '../data/genres';
 import { useAuth } from '../AuthContext';
 
@@ -94,6 +94,8 @@ const SelectField = ({ label, name, error, children, className = '', wrapperClas
 
 export default function ReleaseFormPage() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editingReleaseId = searchParams.get('edit');
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -135,6 +137,67 @@ export default function ReleaseFormPage() {
       setFormData((prev) => ({ ...prev, telegram: user.telegram }));
     }
   }, [user, formData.telegram]);
+
+  useEffect(() => {
+    if (!editingReleaseId) return;
+    const loadRelease = async () => {
+      try {
+        const res = await api.get(`/releases/${editingReleaseId}`);
+        const release = res.data;
+        const metadata = release.metadata && typeof release.metadata === 'string' ? JSON.parse(release.metadata) : (release.metadata || {});
+        const nextTracks = Array.isArray(metadata.tracks) && metadata.tracks.length
+          ? metadata.tracks.map((track) => ({
+            ...INITIAL_TRACK,
+            track_title: track.track_title || track.title || '',
+            track_artists: track.track_artists || track.artists || '',
+            lyrics_authors: track.lyrics_authors || '',
+            music_authors: track.music_authors || '',
+            explicit: Boolean(track.explicit),
+            instrumental: Boolean(track.instrumental),
+            isrc: track.isrc || '',
+            audio_file: track.audio_file || '',
+            original_filename: track.original_filename || '',
+            audio_file_obj: null,
+          }))
+          : [{ ...INITIAL_TRACK }];
+
+        setFormData((prev) => ({
+          ...prev,
+          release_title: release.title || '',
+          subtitle: release.subtitle || '',
+          release_type: release.release_type || 'single',
+          artists: release.artists || '',
+          main_genre: metadata.main_genre || '',
+          sub_genre: metadata.sub_genre || '',
+          release_date: metadata.release_date || getAutoReleaseDateValue(),
+          upc: metadata.upc || '',
+          original_release_date: metadata.original_release_date || '',
+          tracks: nextTracks,
+          project_demo_link: metadata.demo || '',
+          telegram: metadata.telegram || prev.telegram || '',
+          spotify_profile: metadata.spotify_profile || 'create',
+          spotify_link: metadata.spotify_link || '',
+          apple_music_profile: metadata.apple_music_profile || 'create',
+          apple_music_link: metadata.apple_music_link || '',
+          comment: metadata.comment || '',
+        }));
+
+        if (release.cover_url) {
+          const coverUrl = release.cover_url.startsWith('http') ? release.cover_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '')}${release.cover_url}`;
+          setCoverPreview(coverUrl);
+        }
+        setDraftReleaseId(release.id);
+        setTrackUploads(nextTracks.map((track) => ({
+          progress: track.audio_file ? 100 : 0,
+          status: track.audio_file ? 'done' : 'idle',
+          filename: track.original_filename || (track.audio_file ? 'Файл загружен' : ''),
+        })));
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadRelease();
+  }, [editingReleaseId]);
 
   useEffect(() => {
     setTrackUploads((prev) => {
@@ -307,7 +370,7 @@ export default function ReleaseFormPage() {
       if (!formData.artists) nextErrors.artists = 'Обязательно';
       if (!formData.main_genre) nextErrors.main_genre = 'Обязательно';
       if (!currentReleaseDate) nextErrors.release_date = 'Обязательно';
-      if (!formData.cover_image) nextErrors.cover_image = 'Загрузите обложку';
+      if (!formData.cover_image && !coverPreview) nextErrors.cover_image = 'Загрузите обложку';
     }
 
     if (currentStep === 2) {
@@ -316,7 +379,7 @@ export default function ReleaseFormPage() {
         if (!track.track_artists) nextErrors[`track_${index}_artists`] = 'Артисты обязательны';
         if (!track.lyrics_authors) nextErrors[`track_${index}_lyrics`] = 'Укажите авторов';
         if (!track.music_authors) nextErrors[`track_${index}_music`] = 'Укажите авторов';
-        if (!track.audio_file_obj) nextErrors[`track_${index}_audio`] = 'Загрузите WAV или FLAC';
+        if (!track.audio_file_obj && !track.audio_file) nextErrors[`track_${index}_audio`] = 'Загрузите WAV или FLAC';
       });
     }
 
@@ -562,7 +625,37 @@ export default function ReleaseFormPage() {
                 ) : null}
 
                 <div className="space-y-4">
-                  <span className="field-label">Выберите или перетащите изображение *</span>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="field-label">Обложка *</span>
+                    <span className="group relative inline-flex items-center text-sm font-semibold text-zinc-300">
+                      Требования к обложке
+                      <span className="pointer-events-none absolute right-0 top-8 z-10 hidden w-[420px] rounded-xl border border-zinc-700 bg-[#121212] p-4 text-xs text-zinc-200 shadow-2xl group-hover:block">
+                        <p className="font-semibold text-zinc-200">Формат обложки:</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-4">
+                          <li>Формат файла: JPG или PNG.</li>
+                          <li>Минимальное разрешение: 3000 x 3000 пикселей.</li>
+                          <li>Соотношение сторон: 1:1 (размер по вертикали и горизонтали должен быть одинаковым).</li>
+                        </ul>
+                        <p className="mt-3 font-semibold text-zinc-200">Требования к обложке:</p>
+                        <p className="mt-2">Оригинальность. Обложка должна быть оригинальной, не используйте шаблоны или изображения, которые не соответствуют релизу. Нельзя использовать изображения, защищенные авторским правом.</p>
+                        <p className="mt-2">Точность. Обложка не должна вводить в заблуждение. Например, запрещено изображение другого артиста или ссылка на него, если он не участвует в релизе.</p>
+                        <p className="mt-2">Обложка не должна содержать никакую текстовую информацию кроме имени исполнителя, названия альбома, наименования лейбла, года релиза или имени правообладателя.</p>
+                        <p className="mt-2">Текстовая информация должна в точности совпадать с названиями в релизе. Можно не использовать надписи совсем. Если на обложке указывается версия релиза, она должна совпадать с версий в релизе.</p>
+                        <p className="mt-2">Качество. Принимается только графика в формате JPEG (несжатое качество) и PNG, минимальное разрешение 3000х3000 пикселей, color mode: RGB стандарт (CYMK не поддерживается). Размер по вертикали и по горизонтали должен быть одинаковым (обложка квадратная, 1:1). Изображения не должны быть размытыми, пикселизированными, растянутыми или иметь другие проблемы с качеством.</p>
+                        <p className="mt-2">Культурные особенности. Не допускается пропаганда ненависти по признаку расы, религии, пола, сексуальной ориентации, национального/этнического происхождения или других особенностей.</p>
+                        <p className="mt-2 font-semibold text-zinc-200">Дополнительные материалы. Запрещено размещать на обложках:</p>
+                        <ul className="mt-2 list-disc space-y-1 pl-4">
+                          <li>Ссылки, хэштеги;</li>
+                          <li>Логотипы, защищенные авторским правом, или официальные изображения брендов. Разрешены отсылки, но не очевидный плагиат;</li>
+                          <li>Материалы порнографического или излишне оскорбительного содержания;</li>
+                          <li>пропаганду наркотиков;</li>
+                          <li>затрагивающее расовую, политическую тему;</li>
+                          <li>оскорбления;</li>
+                          <li>лица известных моделей, актеров, артистов, героев мультфильмов, канонизированных лиц, известные картины.</li>
+                        </ul>
+                      </span>
+                    </span>
+                  </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1">
                       <div className="mb-3 flex items-center gap-2 text-zinc-300">
@@ -583,34 +676,7 @@ export default function ReleaseFormPage() {
                         )}
                       </div>
                       <div className="max-w-sm text-xs text-zinc-400">
-                        <p className="text-sm font-semibold text-white">Требования к обложке</p>
-                        <div className="mt-3 space-y-2">
-                          <p className="font-semibold text-zinc-300">Формат обложки:</p>
-                          <ul className="list-disc space-y-1 pl-4">
-                            <li>Формат файла: JPG или PNG.</li>
-                            <li>Минимальное разрешение: 3000 x 3000 пикселей.</li>
-                            <li>Соотношение сторон: 1:1 (размер по вертикали и горизонтали должен быть одинаковым).</li>
-                          </ul>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                          <p className="font-semibold text-zinc-300">Требования к обложке:</p>
-                          <p>Оригинальность. Обложка должна быть оригинальной, не используйте шаблоны или изображения, которые не соответствуют релизу. Нельзя использовать изображения, защищенные авторским правом.</p>
-                          <p>Точность. Обложка не должна вводить в заблуждение. Например, запрещено изображение другого артиста или ссылка на него, если он не участвует в релизе.</p>
-                          <p>Обложка не должна содержать никакую текстовую информацию кроме имени исполнителя, названия альбома, наименования лейбла, года релиза или имени правообладателя.</p>
-                          <p>Текстовая информация должна в точности совпадать с названиями в релизе. Можно не использовать надписи совсем. Если на обложке указывается версия релиза, она должна совпадать с версий в релизе.</p>
-                          <p>Качество. Принимается только графика в формате JPEG (несжатое качество) и PNG, минимальное разрешение 3000х3000 пикселей, color mode: RGB стандарт (CYMK не поддерживается). Размер по вертикали и по горизонтали должен быть одинаковым (обложка квадратная, 1:1). Изображения не должны быть размытыми, пикселизированными, растянутыми или иметь другие проблемы с качеством.</p>
-                          <p>Культурные особенности. Не допускается пропаганда ненависти по признаку расы, религии, пола, сексуальной ориентации, национального/этнического происхождения или других особенностей.</p>
-                          <p>Дополнительные материалы. Запрещено размещать на обложках:</p>
-                          <ul className="list-disc space-y-1 pl-4">
-                            <li>Ссылки, хэштеги;</li>
-                            <li>Логотипы, защищенные авторским правом, или официальные изображения брендов. Разрешены отсылки, но не очевидный плагиат;</li>
-                            <li>Материалы порнографического или излишне оскорбительного содержания;</li>
-                            <li>пропаганду наркотиков;</li>
-                            <li>затрагивающее расовую, политическую тему;</li>
-                            <li>оскорбления;</li>
-                            <li>лица известных моделей, актеров, артистов, героев мультфильмов, канонизированных лиц, известные картины.</li>
-                          </ul>
-                        </div>
+                        <p className="text-sm text-zinc-500">Наведите на текст “Требования к обложке” сверху, чтобы увидеть полный список.</p>
                       </div>
                     </div>
                   </div>
@@ -661,7 +727,7 @@ export default function ReleaseFormPage() {
                             />
                             <div className="w-full max-w-xs flex-1 sm:max-w-[240px]">
                               <div className="flex items-center justify-between text-xs text-zinc-400">
-                                <span className="truncate">{trackUploads[index]?.filename || 'Файл не выбран'}</span>
+                                <span className="truncate">{trackUploads[index]?.filename || track.original_filename || (track.audio_file ? 'Файл загружен' : 'Файл не выбран')}</span>
                                 <span>{trackUploads[index]?.progress || 0}%</span>
                               </div>
                               <div className="mt-2 h-2 w-full rounded-full bg-zinc-800">
@@ -783,7 +849,7 @@ export default function ReleaseFormPage() {
                     {formData.tracks.map((track, index) => (
                       <li key={`review-${index}`} className="soft-card flex items-center justify-between gap-3 p-4">
                         <span>{index + 1}. {track.track_title || 'Без названия'}</span>
-                        <span className="text-zinc-500">{track.audio_file_obj ? track.audio_file_obj.name : 'Без файла'}</span>
+                        <span className="text-zinc-500">{track.audio_file_obj ? track.audio_file_obj.name : (track.original_filename || (track.audio_file ? 'Файл загружен' : 'Без файла'))}</span>
                       </li>
                     ))}
                   </ul>

@@ -172,15 +172,22 @@ export default function DistributionDashboard() {
                   onClick={() => openReleaseModal(release)}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] text-left transition-all duration-300 hover:border-zinc-600 hover:shadow-2xl hover:shadow-white/5"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
-                    <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
-                    <div className="absolute right-3 top-3">
-                      <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
-                      {statusMeta.label}
+                <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
+                  <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                  <div className="absolute right-3 top-3">
+                    <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
+                    {statusMeta.label}
+                    </span>
+                  </div>
+                  {release.metadata?.moderator_comment ? (
+                    <div className="absolute bottom-3 left-3">
+                      <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-200">
+                        Комм. от модератора
                       </span>
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                  </div>
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                </div>
                   <div className="flex flex-1 flex-col p-5">
                     <div>
                     <h3 className="truncate text-lg font-bold tracking-tight text-zinc-100">
