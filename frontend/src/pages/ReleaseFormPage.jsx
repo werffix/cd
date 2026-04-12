@@ -274,8 +274,8 @@ export default function ReleaseFormPage() {
   };
 
   return (
-    <div className="app-shell">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-6 sm:px-6 lg:px-8">
+    <div className="app-shell min-h-screen bg-[#0a0a0a] text-zinc-50">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
         <div className="flex items-center justify-between">
           <button type="button" onClick={() => nav('/dashboard')} className="secondary-button">
             <ArrowLeft size={16} />
@@ -287,8 +287,8 @@ export default function ReleaseFormPage() {
         </div>
 
         <div className="mt-6">
-          <h1 className="text-3xl font-extrabold tracking-[-0.04em] text-white">Создание релиза</h1>
-          <p className="mt-2 text-sm text-slate-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
+          <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -297,12 +297,12 @@ export default function ReleaseFormPage() {
               key={item}
               type="button"
               onClick={() => setStep(item)}
-              className={`rounded-full border px-5 py-2 text-sm font-semibold transition ${
+              className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
                 item === step
-                  ? 'border-white/30 bg-white text-slate-950'
+                  ? 'border-white bg-white text-black'
                   : stepErrors[item]
-                    ? 'border-red-400/30 bg-red-400/10 text-red-100'
-                    : 'border-white/10 bg-[#0a0a0a] text-slate-300'
+                    ? 'border-red-500/30 bg-red-500/10 text-red-200'
+                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
               }`}
             >
               {['Общие данные', 'Треки', 'Контакты', 'Подтверждение'][item - 1]}
@@ -338,7 +338,7 @@ export default function ReleaseFormPage() {
                     <p className="text-sm font-semibold text-white">Поджанр</p>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {selectedGenre.subgenres.map((sub) => (
-                        <label key={sub} className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${formData.sub_genre === sub ? 'border-white/30 bg-white text-slate-950' : 'border-white/10 bg-[#0a0a0a] text-slate-300'}`}>
+                        <label key={sub} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${formData.sub_genre === sub ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
                           <input
                             type="radio"
                             name="sub_genre"
@@ -382,17 +382,17 @@ export default function ReleaseFormPage() {
 
                 <div className="space-y-2">
                   <span className="field-label">Загрузите свою обложку *</span>
-                  <div className="rounded-[22px] border border-dashed border-white/15 bg-white/[0.03] p-5">
-                    <div className="mb-3 flex items-center gap-2 text-slate-300">
+                  <div className="rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6">
+                    <div className="mb-3 flex items-center gap-2 text-zinc-300">
                       <Upload size={16} />
                       Загрузите свою обложку
                     </div>
-                    <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-slate-400 file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-slate-950" />
+                    <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
                     {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                   </div>
                   {coverPreview ? (
-                    <div className="overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.03] p-3">
-                      <img src={coverPreview} alt="Preview" className="aspect-square w-full rounded-[20px] object-cover" />
+                    <div className="overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
+                      <img src={coverPreview} alt="Preview" className="aspect-square w-full rounded-lg object-cover" />
                     </div>
                   ) : null}
                 </div>
@@ -403,8 +403,8 @@ export default function ReleaseFormPage() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-bold tracking-[-0.03em] text-white">Треклист</h3>
-                    <p className="mt-1 text-sm text-slate-400">Добавьте все треки, авторов и аудиофайлы релиза.</p>
+                    <h3 className="text-xl font-bold text-white">Треклист</h3>
+                    <p className="mt-1 text-sm text-zinc-400">Добавьте все треки, авторов и аудиофайлы релиза.</p>
                   </div>
                   <button type="button" onClick={addTrack} className="primary-button">
                     <Plus size={16} />
@@ -415,7 +415,7 @@ export default function ReleaseFormPage() {
                 {formData.tracks.map((track, index) => (
                   <div key={`track-${index}`} className="soft-card space-y-4 p-5">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold uppercase tracking-[0.24em] text-slate-500">Трек {index + 1}</p>
+                      <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Трек {index + 1}</p>
                       {formData.tracks.length > 1 && (
                         <button type="button" onClick={() => removeTrack(index)} className="secondary-button px-3 py-3">
                           <Trash2 size={15} />
@@ -432,23 +432,23 @@ export default function ReleaseFormPage() {
 
                       <label className="block space-y-2">
                         <span className="field-label">Аудио WAV / FLAC *</span>
-                        <div className="rounded-[22px] border border-dashed border-white/15 bg-white/[0.03] p-5">
-                          <input type="file" accept=".wav,.flac,audio/wav,audio/flac" onChange={(e) => handleTrackChange(index, 'audio_file_obj', e.target.files?.[0] || null)} className="block w-full text-sm text-slate-400 file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-slate-950" />
+                        <div className="rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6">
+                          <input type="file" accept=".wav,.flac,audio/wav,audio/flac" onChange={(e) => handleTrackChange(index, 'audio_file_obj', e.target.files?.[0] || null)} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
                           {errors[`track_${index}_audio`] ? <p className="mt-2 text-xs text-red-300">{errors[`track_${index}_audio`]}</p> : null}
                         </div>
                       </label>
                     </div>
 
-                    <label className="flex items-center justify-between gap-4 rounded-[18px] border border-white/10 bg-[#0a0a0a] px-4 py-3 text-sm text-slate-300">
+                    <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
                       <span className="font-medium text-white">Ненормативная лексика</span>
-                      <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.explicit ? 'bg-white' : 'bg-white/10'}`}>
+                      <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.explicit ? 'bg-white' : 'bg-zinc-800'}`}>
                         <input
                           type="checkbox"
                           checked={track.explicit}
                           onChange={(e) => handleTrackChange(index, 'explicit', e.target.checked)}
                           className="peer sr-only"
                         />
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-[#0a0a0a] transition ${track.explicit ? 'translate-x-6' : 'translate-x-1'}`} />
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.explicit ? 'translate-x-6' : 'translate-x-1'}`} />
                       </span>
                     </label>
                   </div>
@@ -488,9 +488,9 @@ export default function ReleaseFormPage() {
                   <option value="already_submitted">Указывал ранее</option>
                 </SelectField>
                 <label className="block space-y-2 md:col-span-2">
-                  <span className="field-label">Комментарий модератору</span>
-                  <textarea name="comment" value={formData.comment} onChange={handleChange} rows={5} className="field-textarea" />
-                </label>
+                      <span className="field-label">Комментарий модератору</span>
+                      <textarea name="comment" value={formData.comment} onChange={handleChange} rows={5} className="field-textarea" />
+                    </label>
               </div>
             )}
 
@@ -498,21 +498,21 @@ export default function ReleaseFormPage() {
               <div className="space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="soft-card p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Сводка релиза</p>
-                    <div className="mt-4 space-y-3 text-sm text-slate-300">
-                      <p><span className="text-slate-500">Релиз:</span> {formData.release_title}</p>
-                      <p><span className="text-slate-500">Артисты:</span> {formData.artists}</p>
-                      <p><span className="text-slate-500">Жанр:</span> {buildGenreLabel(formData.main_genre, formData.sub_genre) || 'Не указан'}</p>
-                      <p><span className="text-slate-500">Тип:</span> {formData.release_type}</p>
-                      <p><span className="text-slate-500">Дата релиза:</span> {currentReleaseDate}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Сводка релиза</p>
+                    <div className="mt-4 space-y-3 text-sm text-zinc-300">
+                      <p><span className="text-zinc-500">Релиз:</span> {formData.release_title}</p>
+                      <p><span className="text-zinc-500">Артисты:</span> {formData.artists}</p>
+                      <p><span className="text-zinc-500">Жанр:</span> {buildGenreLabel(formData.main_genre, formData.sub_genre) || 'Не указан'}</p>
+                      <p><span className="text-zinc-500">Тип:</span> {formData.release_type}</p>
+                      <p><span className="text-zinc-500">Дата релиза:</span> {currentReleaseDate}</p>
                     </div>
                   </div>
                   <div className="soft-card p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Обложка</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Обложка</p>
                     {coverPreview ? (
-                      <img src={coverPreview} alt="Cover preview" className="mt-4 aspect-square w-full rounded-[20px] object-cover" />
+                      <img src={coverPreview} alt="Cover preview" className="mt-4 aspect-square w-full rounded-lg object-cover" />
                     ) : (
-                      <div className="mt-4 rounded-[20px] border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                      <div className="mt-4 rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-4 text-sm text-zinc-400">
                         Обложка не загружена.
                       </div>
                     )}
@@ -524,24 +524,24 @@ export default function ReleaseFormPage() {
                     <Plus size={16} />
                     Треклист
                   </div>
-                  <ul className="space-y-3 text-sm text-slate-300">
+                  <ul className="space-y-3 text-sm text-zinc-300">
                     {formData.tracks.map((track, index) => (
                       <li key={`review-${index}`} className="soft-card flex items-center justify-between gap-3 p-4">
                         <span>{index + 1}. {track.track_title || 'Без названия'}</span>
-                        <span className="text-slate-500">{track.audio_file_obj ? track.audio_file_obj.name : 'Без файла'}</span>
+                        <span className="text-zinc-500">{track.audio_file_obj ? track.audio_file_obj.name : 'Без файла'}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <label className={`flex items-start gap-3 rounded-[22px] border p-4 text-sm ${errors.agreement ? 'border-red-400/30 bg-red-400/10 text-red-100' : 'border-white/10 bg-white/[0.04] text-slate-300'}`}>
-                  <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5" />
+                <label className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${errors.agreement ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
+                  <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900" />
                   <span>Подтверждаю корректность данных и права на материалы. Готов отправить релиз на модерацию.</span>
                 </label>
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5">
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/60 pt-5">
               <div>
                 {step > 1 && (
                   <button type="button" onClick={prevStep} className="secondary-button">
@@ -567,15 +567,15 @@ export default function ReleaseFormPage() {
 
         {isSubmitting ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="rounded-[24px] border border-white/10 bg-[#0a0a0a] px-8 py-6 text-center">
+            <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] px-8 py-6 text-center">
               <Loader2 className="mx-auto mb-3 animate-spin text-white" size={28} />
-              <p className="text-sm text-slate-300">Загрузка треков, подождите немного</p>
+              <p className="text-sm text-zinc-300">Загрузка треков, подождите немного</p>
             </div>
           </div>
         ) : null}
 
         {submitMessage ? (
-          <div className="fixed bottom-6 right-6 z-50 rounded-[20px] border border-white/10 bg-[#0a0a0a] px-5 py-4 text-sm text-white shadow-[0_18px_60px_rgba(0,0,0,0.5)]">
+          <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-zinc-800/60 bg-[#121212] px-5 py-4 text-sm text-white shadow-2xl">
             {submitMessage}
           </div>
         ) : null}

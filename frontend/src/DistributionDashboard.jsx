@@ -31,26 +31,26 @@ export default function DistributionDashboard() {
   };
 
   return (
-    <div className="app-shell">
-      <div className="mx-auto min-h-screen w-full max-w-[1600px] px-5 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
-          <div className="flex items-center gap-3 text-white">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-              <Music2 size={18} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">CDCULT</p>
-              <p className="text-sm font-semibold text-slate-200">Distribution</p>
-            </div>
+    <div className="app-shell min-h-screen bg-[#0a0a0a]">
+      <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black shadow-lg shadow-white/10">
+            <Music2 size={20} />
           </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT</h1>
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-[0.2em] block">Distribution</span>
+          </div>
+        </div>
 
-          <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button">
-            <Plus size={16} />
-            Новый релиз
-          </button>
-        </header>
+        <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
+          <Plus size={16} />
+          Новый релиз
+        </button>
+      </header>
 
-        <section className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+      <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {releases.map((release) => {
             const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
             return (
@@ -58,29 +58,32 @@ export default function DistributionDashboard() {
                 key={release.id}
                 type="button"
                 onClick={() => openReleaseModal(release)}
-                className="group rounded-[26px] border border-white/10 bg-[#0a0a0a] text-left shadow-[0_18px_50px_rgba(0,0,0,0.4)] transition hover:-translate-y-1 hover:border-white/20"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] text-left transition-all duration-300 hover:border-zinc-600 hover:shadow-2xl hover:shadow-white/5"
               >
-                <div className="relative overflow-hidden rounded-[22px] bg-[#0a0a0a]">
-                  <img src={release.cover} alt={release.title} className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105" />
-                  <div className={`absolute right-4 top-4 rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta.badgeClass}`}>
+                <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
+                  <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                  <div className="absolute right-3 top-3">
+                    <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                     {statusMeta.label}
+                    </span>
                   </div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                 </div>
-                <div className="space-y-4 px-5 pb-5 pt-4">
+                <div className="flex flex-1 flex-col p-5">
                   <div>
-                    <h3 className="text-lg font-semibold text-white">{release.title}</h3>
-                    <p className="mt-1 text-sm text-slate-400">{release.artists}</p>
+                    <h3 className="truncate text-lg font-bold tracking-tight text-zinc-100">{release.title}</h3>
+                    <p className="mt-1 truncate text-sm font-medium text-zinc-400">{release.artists}</p>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span>Дата релиза</span>
-                    <span className="text-slate-200">{formatDate(release.metadata?.release_date || release.created_at)}</span>
+                  <div className="mt-auto pt-5 flex items-center justify-between text-xs">
+                    <span className="font-medium text-zinc-500">Дата релиза</span>
+                    <span className="font-semibold text-zinc-300">{formatDate(release.metadata?.release_date || release.created_at)}</span>
                   </div>
                 </div>
               </button>
             );
           })}
         </section>
-      </div>
+      </main>
 
       <ReleaseDetailsModal
         release={selectedRelease}

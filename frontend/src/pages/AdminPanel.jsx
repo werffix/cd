@@ -84,18 +84,18 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="app-shell px-4 py-4 sm:px-6 lg:px-8">
+    <div className="app-shell min-h-screen bg-[#0a0a0a] px-4 py-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 pb-5">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">CDCULT</p>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-[-0.04em] text-white">Панель модерации</h1>
-            <p className="mt-2 text-sm text-slate-400">Поиск релизов, управление статусами и проверка материалов.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">CDCULT</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
+            <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
           </div>
 
           <div className="flex w-full max-w-md items-center gap-3 sm:w-auto">
             <div className="relative w-full">
-              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -113,7 +113,7 @@ export default function AdminPanel() {
               type="button"
               onClick={() => setFilter(item.key)}
               className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                filter === item.key ? 'border-white/30 bg-white text-slate-950' : 'border-white/10 bg-[#0a0a0a] text-slate-300'
+                filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
               }`}
             >
               {item.label}
@@ -125,22 +125,24 @@ export default function AdminPanel() {
           {filteredReleases.map((release) => {
             const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
             return (
-              <div key={release.id} className="rounded-[26px] border border-white/10 bg-[#0a0a0a] shadow-[0_18px_50px_rgba(0,0,0,0.4)]">
+              <div key={release.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl">
                 <button type="button" onClick={() => setSelectedRelease(release)} className="block w-full text-left">
-                  <div className="relative overflow-hidden rounded-[22px] bg-[#0a0a0a]">
-                    <img src={release.cover} alt={release.title} className="aspect-square w-full object-cover transition duration-500 hover:scale-105" />
-                    <div className={`absolute right-4 top-4 rounded-full border px-3 py-1 text-xs font-semibold ${statusMeta.badgeClass}`}>
-                      {statusMeta.label}
+                  <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
+                    <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 hover:scale-105" />
+                    <div className="absolute right-3 top-3">
+                      <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
+                        {statusMeta.label}
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-4 px-5 pb-5 pt-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-white">{release.title}</h3>
-                      <p className="mt-1 text-sm text-slate-400">{getArtistLabel(release)}</p>
+                      <h3 className="text-lg font-bold tracking-tight text-white">{release.title}</h3>
+                      <p className="mt-1 text-sm font-medium text-zinc-400">{getArtistLabel(release)}</p>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>Дата релиза</span>
-                      <span className="text-slate-200">{formatDate(release.metadata?.release_date || release.created_at)}</span>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-500">Дата релиза</span>
+                      <span className="font-semibold text-zinc-300">{formatDate(release.metadata?.release_date || release.created_at)}</span>
                     </div>
                   </div>
                 </button>
