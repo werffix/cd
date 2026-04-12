@@ -80,7 +80,7 @@ app.post('/api/auth/login', async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE login = ? OR email = ?').get(login, login);
   if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Неверный логин или пароль' });
   const token = jwt.sign({ id: user.id, login: user.login, role: user.role }, JWT_SECRET);
-  res.json({ token, user: { id: user.id, login: user.login, name: user.name, role: user.role } });
+  res.json({ token, user: { id: user.id, login: user.login, name: user.name, email: user.email, role: user.role, telegram: user.telegram || '' } });
 });
 
 // Create Release with Cover
@@ -94,6 +94,65 @@ app.post('/api/releases', auth, (req, res) => {
     const stmt = db.prepare('INSERT INTO releases (user_id, title, subtitle, release_type, artists, genre, status, cover_url, archive_url, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     const result = stmt.run(req.user.id, title, subtitle, type, artists, genre, status, coverUrl, archive_url, metadata || '{}');
     res.json({ id: result.lastInsertRowid, status, cover_url: coverUrl });
+  });
+});
+
+app.put('/api/releases/:id', auth, (req, res) => {
+  uploadCover(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+
+    const releaseId = req.params.id;
+    const release = db.prepare('SELECT metadata, cover_url FROM releases WHERE id = ? AND user_id = ?').get(releaseId, req.user.id);
+    if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+
+    let existingMeta = {};
+    try {
+      existingMeta = release.metadata ? JSON.parse(release.metadata) : {};
+    } catch (e) {
+      existingMeta = {};
+    }
+
+    let incomingMeta = {};
+    if (req.body.metadata) {
+      try {
+        incomingMeta = JSON.parse(req.body.metadata);
+      } catch (e) {
+        incomingMeta = {};
+      }
+    }
+
+    if (Array.isArray(incomingMeta.tracks)) {
+      const existingTracks = Array.isArray(existingMeta.tracks) ? existingMeta.tracks : [];
+      incomingMeta.tracks = incomingMeta.tracks.map((track, index) => ({
+        ...existingTracks[index],
+        ...track,
+      }));
+      if (existingTracks.length > incomingMeta.tracks.length) {
+        incomingMeta.tracks = [...incomingMeta.tracks, ...existingTracks.slice(incomingMeta.tracks.length)];
+      }
+    }
+
+    const mergedMeta = { ...existingMeta, ...incomingMeta };
+
+    const coverUrl = req.file ? `/uploads/covers/${req.file.filename}` : release.cover_url;
+    const { title, subtitle, type, artists, genre, status, archive_url } = req.body;
+    db.prepare(
+      'UPDATE releases SET title = ?, subtitle = ?, release_type = ?, artists = ?, genre = ?, status = ?, cover_url = ?, archive_url = ?, metadata = ? WHERE id = ? AND user_id = ?',
+    ).run(
+      title,
+      subtitle,
+      type,
+      artists,
+      genre,
+      status,
+      coverUrl,
+      archive_url || '',
+      JSON.stringify(mergedMeta),
+      releaseId,
+      req.user.id,
+    );
+
+    res.json({ success: true, cover_url: coverUrl });
   });
 });
 
@@ -162,8 +221,23 @@ app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
 });
 
 app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
-  const { status } = req.body;
-  db.prepare('UPDATE releases SET status = ? WHERE id = ?').run(status, req.params.id);
+  const { status, moderator_comment } = req.body;
+  const release = db.prepare('SELECT metadata FROM releases WHERE id = ?').get(req.params.id);
+  let meta = {};
+  try {
+    meta = release?.metadata ? JSON.parse(release.metadata) : {};
+  } catch (e) {
+    meta = {};
+  }
+  if (typeof moderator_comment === 'string' && moderator_comment.trim()) {
+    meta.moderator_comment = moderator_comment.trim();
+  }
+  db.prepare('UPDATE releases SET status = ?, metadata = ? WHERE id = ?').run(status, JSON.stringify(meta), req.params.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
+  db.prepare('DELETE FROM releases WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
 
