@@ -131,6 +131,15 @@ export default function AdminPanel() {
             Доставлен
           </button>
         ) : null}
+        {release.status === 'shipped' ? (
+          <button
+            type="button"
+            onClick={() => setCommentModal({ open: true, release, status: 'revoked', comment: '' })}
+            className={`secondary-button ${baseClass}`}
+          >
+            Отозвать
+          </button>
+        ) : null}
         {release.status !== 'rejected' ? (
           <button
             type="button"
@@ -158,7 +167,7 @@ export default function AdminPanel() {
       <div className="flex min-h-screen">
         <aside className={`border-r border-zinc-800/60 bg-[#0f0f0f] transition-all ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className="flex h-20 items-center justify-center border-b border-zinc-800/60">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white">
               <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
             </div>
           </div>
@@ -182,11 +191,11 @@ export default function AdminPanel() {
           <div className="mx-auto max-w-[1600px] space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 pb-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
                   <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">cdcult</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">CDCULT</p>
                   <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
                   <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
                 </div>
@@ -208,7 +217,7 @@ export default function AdminPanel() {
                     onClick={() => setMenuOpen((prev) => !prev)}
                     className="flex items-center gap-2 rounded-full border border-zinc-800/60 bg-zinc-900/40 px-3 py-2 text-sm text-white transition hover:bg-zinc-800/60"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+                    <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
                       {avatarPreview ? (
                         <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
                       ) : avatarFallback ? (
@@ -223,7 +232,7 @@ export default function AdminPanel() {
                   {menuOpen ? (
                     <div className="absolute right-0 top-12 z-20 w-64 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
                       <div className="flex items-center gap-3 border-b border-zinc-800/60 px-3 py-3">
-                        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+                        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
                           {avatarPreview ? (
                             <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
                           ) : avatarFallback ? (
@@ -298,8 +307,11 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <div className="space-y-4 px-5 pb-5 pt-4">
-                        <div>
-                          <h3 className="text-lg font-bold tracking-tight text-white">{release.title}</h3>
+                    <div>
+                      <h3 className="text-lg font-bold tracking-tight text-white">
+                        {release.title}
+                        {release.subtitle ? ` (${release.subtitle})` : ''}
+                      </h3>
                           <p className="mt-1 text-sm font-medium text-zinc-400">{getArtistLabel(release)}</p>
                         </div>
                         <div className="flex items-center justify-between text-xs">
@@ -324,12 +336,14 @@ export default function AdminPanel() {
         onClose={() => setSelectedRelease(null)}
         showOwner
         actionButtons={buildActionButtons(selectedRelease)}
+        onRecall={(release) => setCommentModal({ open: true, release, status: 'revoked', comment: '' })}
+        onDelete={(release) => deleteRelease(release.id)}
       />
 
       {settingsOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6" onClick={() => setSettingsOpen(false)}>
           <div
-            className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
+            className="w-full max-w-3xl overflow-hidden rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
@@ -339,7 +353,7 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            <div className="mt-6 space-y-8">
+            <div className="mt-6 max-h-[70vh] space-y-8 overflow-y-auto pr-2">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-zinc-500">Аватар</h3>
                 <div className="mt-4 flex items-center gap-4">

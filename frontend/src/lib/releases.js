@@ -3,6 +3,7 @@ export const STATUS_META = {
   moderation: { label: 'На рассмотрении', badgeClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400' },
   delivered: { label: 'Ожидает доставки', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
   shipped: { label: 'Доставлен', badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
+  revoked: { label: 'Отозван', badgeClass: 'border-rose-500/20 bg-rose-500/10 text-rose-300' },
   rejected: { label: 'Отклонён', badgeClass: 'border-red-500/20 bg-red-500/10 text-red-400' },
 };
 
@@ -12,6 +13,7 @@ export const ADMIN_FILTERS = [
   { key: 'rejected', label: 'Отклонен' },
   { key: 'delivered', label: 'Ожидает доставки' },
   { key: 'shipped', label: 'Доставлен' },
+  { key: 'revoked', label: 'Отозван' },
 ];
 
 export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
@@ -64,6 +66,7 @@ export const normalizeTrack = (track = {}) => ({
   lyricsAuthors: track.lyrics_authors || track.lyricsAuthors || 'Не указаны',
   musicAuthors: track.music_authors || track.musicAuthors || 'Не указаны',
   explicit: Boolean(track.explicit),
+  instrumental: Boolean(track.instrumental),
   isrc: track.isrc || 'Не указан',
   audioUrl: track.audio_file ? resolveAssetUrl(track.audio_file) : null,
   originalFilename: track.original_filename || track.originalFilename || null,

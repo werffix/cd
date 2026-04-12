@@ -81,12 +81,11 @@ export default function DistributionDashboard() {
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
         <div className="flex items-center gap-5">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white">
             <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">cdcult</h1>
-            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-[0.2em] block">Distribution</span>
+            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT</h1>
           </div>
         </div>
 
@@ -100,7 +99,7 @@ export default function DistributionDashboard() {
             onClick={() => setMenuOpen((prev) => !prev)}
             className="flex items-center gap-2 rounded-full border border-zinc-800/60 bg-zinc-900/40 px-3 py-2 text-sm text-white transition hover:bg-zinc-800/60"
           >
-            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
               {avatarPreview ? (
                 <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
               ) : avatarFallback ? (
@@ -115,7 +114,7 @@ export default function DistributionDashboard() {
           {menuOpen ? (
             <div className="absolute right-0 top-14 z-20 w-64 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
               <div className="flex items-center gap-3 border-b border-zinc-800/60 px-3 py-3">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
                   ) : avatarFallback ? (
@@ -155,7 +154,7 @@ export default function DistributionDashboard() {
         {releases.length === 0 ? (
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="text-center">
-              <p className="text-lg font-semibold text-white">Пока что у вас нету релизов</p>
+              <p className="text-lg font-semibold text-white">Здесь пока пусто. Создайте первый релиз</p>
               <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button mt-6">
                 <Plus size={16} />
                 Новый релиз
@@ -184,7 +183,10 @@ export default function DistributionDashboard() {
                   </div>
                   <div className="flex flex-1 flex-col p-5">
                     <div>
-                      <h3 className="truncate text-lg font-bold tracking-tight text-zinc-100">{release.title}</h3>
+                    <h3 className="truncate text-lg font-bold tracking-tight text-zinc-100">
+                      {release.title}
+                      {release.subtitle ? ` (${release.subtitle})` : ''}
+                    </h3>
                       <p className="mt-1 truncate text-sm font-medium text-zinc-400">{release.artists}</p>
                     </div>
                     <div className="mt-auto pt-5 flex items-center justify-between text-xs">
@@ -202,12 +204,32 @@ export default function DistributionDashboard() {
       <ReleaseDetailsModal
         release={selectedRelease}
         onClose={() => setSelectedRelease(null)}
+        onRecall={async (release) => {
+          try {
+            await api.put(`/releases/${release.id}/status`, { status: 'revoked' });
+            fetchReleases();
+            setSelectedRelease((prev) => (prev?.id === release.id ? { ...release, status: 'revoked' } : prev));
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        onDelete={async (release) => {
+          if (!window.confirm('Удалить релиз без возможности восстановления?')) return;
+          try {
+            await api.delete(`/releases/${release.id}`);
+            fetchReleases();
+            setSelectedRelease(null);
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+        onEdit={(release) => nav(`/dashboard/new?edit=${release.id}`)}
       />
 
       {settingsOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6" onClick={() => setSettingsOpen(false)}>
           <div
-            className="w-full max-w-3xl rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
+            className="w-full max-w-3xl overflow-hidden rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
@@ -217,7 +239,7 @@ export default function DistributionDashboard() {
               </button>
             </div>
 
-            <div className="mt-6 space-y-8">
+            <div className="mt-6 max-h-[70vh] space-y-8 overflow-y-auto pr-2">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-zinc-500">Аватар</h3>
                 <div className="mt-4 flex items-center gap-4">

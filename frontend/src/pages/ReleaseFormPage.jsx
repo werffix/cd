@@ -20,6 +20,7 @@ const INITIAL_TRACK = {
   lyrics_authors: '',
   music_authors: '',
   explicit: false,
+  instrumental: false,
   isrc: '',
   audio_file_obj: null,
 };
@@ -102,9 +103,10 @@ export default function ReleaseFormPage() {
     artists: '',
     main_genre: '',
     sub_genre: '',
-    release_date_type: 'asap',
+    release_date_type: 'exact_date',
     release_date: getAutoReleaseDateValue(),
     upc: '',
+    original_release_date: '',
     tracks: [{ ...INITIAL_TRACK }],
     project_demo_link: '',
     telegram: user?.telegram || '',
@@ -126,7 +128,7 @@ export default function ReleaseFormPage() {
   const [submitMessage, setSubmitMessage] = useState('');
 
   const selectedGenre = useMemo(() => findGenreNode(formData.main_genre), [formData.main_genre]);
-  const currentReleaseDate = formData.release_date_type === 'asap' ? getAutoReleaseDateValue() : formData.release_date;
+  const currentReleaseDate = formData.release_date;
 
   useEffect(() => {
     if (user?.telegram && !formData.telegram) {
@@ -198,11 +200,13 @@ export default function ReleaseFormPage() {
       lyrics_authors: track.lyrics_authors,
       music_authors: track.music_authors,
       explicit: track.explicit,
+      instrumental: track.instrumental,
       isrc: track.isrc,
     })),
     telegram: formData.telegram,
     demo: formData.project_demo_link,
     upc: formData.upc,
+    original_release_date: formData.original_release_date,
     comment: formData.comment,
     release_date: currentReleaseDate,
     release_date_type: formData.release_date_type,
@@ -256,6 +260,7 @@ export default function ReleaseFormPage() {
       trackData.append('lyricsAuthors', formData.tracks[index]?.lyrics_authors || '');
       trackData.append('musicAuthors', formData.tracks[index]?.music_authors || '');
       trackData.append('explicit', formData.tracks[index]?.explicit || false);
+      trackData.append('instrumental', formData.tracks[index]?.instrumental || false);
       trackData.append('isrc', formData.tracks[index]?.isrc || '');
 
       await uploadTrackToReleaseWithProgress(releaseId, trackData, (event) => {
@@ -301,7 +306,6 @@ export default function ReleaseFormPage() {
       if (!formData.release_title) nextErrors.release_title = 'Обязательно';
       if (!formData.artists) nextErrors.artists = 'Обязательно';
       if (!formData.main_genre) nextErrors.main_genre = 'Обязательно';
-      if (selectedGenre?.subgenres?.length && !formData.sub_genre) nextErrors.sub_genre = 'Обязательно';
       if (!currentReleaseDate) nextErrors.release_date = 'Обязательно';
       if (!formData.cover_image) nextErrors.cover_image = 'Загрузите обложку';
     }
@@ -422,6 +426,7 @@ export default function ReleaseFormPage() {
         trackData.append('lyricsAuthors', track.lyrics_authors);
         trackData.append('musicAuthors', track.music_authors);
         trackData.append('explicit', track.explicit);
+        trackData.append('instrumental', track.instrumental);
         trackData.append('isrc', track.isrc);
 
         await uploadTrackToReleaseWithProgress(releaseId, trackData, (event) => {
@@ -462,7 +467,7 @@ export default function ReleaseFormPage() {
         </div>
 
         <div className="mt-8 flex w-full items-center justify-center">
-          <div className="flex w-full max-w-4xl items-center justify-between gap-6">
+          <div className="flex w-full max-w-4xl items-center justify-center gap-6">
             {[
               { title: 'Данные релиза', subtitle: 'Основная информация' },
               { title: 'Треклист', subtitle: 'Треки и архив' },
@@ -473,7 +478,7 @@ export default function ReleaseFormPage() {
               const isActive = currentStep === step;
               const isError = stepErrors[currentStep];
               return (
-                <div key={item.title} className="flex flex-1 items-center gap-4">
+                <div key={item.title} className="flex flex-1 items-center justify-center gap-4">
                   <button
                     type="button"
                     onClick={() => setStep(currentStep)}
@@ -526,71 +531,87 @@ export default function ReleaseFormPage() {
                 </label>
 
                 {selectedGenre?.subgenres?.length ? (
-                  <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-4">
-                    <p className="text-sm font-semibold text-white">Поджанр</p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {selectedGenre.subgenres.map((sub) => (
-                        <label key={sub} className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${formData.sub_genre === sub ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
-                          <input
-                            type="radio"
-                            name="sub_genre"
-                            value={sub}
-                            checked={formData.sub_genre === sub}
-                            onChange={handleChange}
-                            className="h-4 w-4"
-                          />
-                          {sub}
-                        </label>
-                      ))}
-                    </div>
-                    {errors.sub_genre ? <span className="mt-2 block text-xs text-red-300">{errors.sub_genre}</span> : null}
-                  </div>
+                  <SelectField
+                    label="Поджанр"
+                    name="sub_genre"
+                    value={formData.sub_genre}
+                    onChange={handleChange}
+                  >
+                    <option value="">Не выбирать</option>
+                    {selectedGenre.subgenres.map((sub) => (
+                      <option key={sub} value={sub}>{sub}</option>
+                    ))}
+                  </SelectField>
                 ) : null}
 
                 <Field label="UPC (опционально)" name="upc" value={formData.upc} onChange={handleChange} />
 
                 <div className="space-y-3">
                   <span className="field-label">Дата релиза *</span>
-                  <div className="flex flex-wrap gap-2 max-w-fit">
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, release_date_type: 'asap', release_date: getAutoReleaseDateValue() }))}
-                      className={formData.release_date_type === 'asap' ? 'primary-button px-4 py-3' : 'secondary-button px-4 py-3'}
-                    >
-                      Как можно скорее (автоматически через 3 дня)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, release_date_type: 'exact_date' }))}
-                      className={formData.release_date_type === 'exact_date' ? 'primary-button px-4 py-3' : 'secondary-button px-4 py-3'}
-                    >
-                      Точная дата
-                    </button>
-                  </div>
-                  {formData.release_date_type === 'asap' ? null : (
-                    <Field name="release_date" type="date" value={formData.release_date} onChange={handleChange} error={errors.release_date} />
-                  )}
+                  <Field name="release_date" type="date" value={formData.release_date} onChange={handleChange} error={errors.release_date} />
                 </div>
 
-                <div className="space-y-2">
-                  <span className="field-label">Загрузите свою обложку *</span>
-                  <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 md:flex-row md:items-center md:justify-between">
+                {formData.upc ? (
+                  <Field
+                    label="Оригинальная дата релиза"
+                    name="original_release_date"
+                    type="date"
+                    value={formData.original_release_date}
+                    onChange={handleChange}
+                  />
+                ) : null}
+
+                <div className="space-y-4">
+                  <span className="field-label">Выберите или перетащите изображение *</span>
+                  <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1">
                       <div className="mb-3 flex items-center gap-2 text-zinc-300">
                         <Upload size={16} />
-                        Загрузите свою обложку
+                        Выберите или перетащите изображение
                       </div>
                       <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
                       {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                     </div>
-                    <div className="h-28 w-28 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
-                      {coverPreview ? (
-                        <img src={coverPreview} alt="Preview" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                          Preview
+                    <div className="flex items-start gap-6">
+                      <div className="h-28 w-28 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
+                        {coverPreview ? (
+                          <img src={coverPreview} alt="Preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                            Preview
+                          </div>
+                        )}
+                      </div>
+                      <div className="max-w-sm text-xs text-zinc-400">
+                        <p className="text-sm font-semibold text-white">Требования к обложке</p>
+                        <div className="mt-3 space-y-2">
+                          <p className="font-semibold text-zinc-300">Формат обложки:</p>
+                          <ul className="list-disc space-y-1 pl-4">
+                            <li>Формат файла: JPG или PNG.</li>
+                            <li>Минимальное разрешение: 3000 x 3000 пикселей.</li>
+                            <li>Соотношение сторон: 1:1 (размер по вертикали и горизонтали должен быть одинаковым).</li>
+                          </ul>
                         </div>
-                      )}
+                        <div className="mt-4 space-y-2">
+                          <p className="font-semibold text-zinc-300">Требования к обложке:</p>
+                          <p>Оригинальность. Обложка должна быть оригинальной, не используйте шаблоны или изображения, которые не соответствуют релизу. Нельзя использовать изображения, защищенные авторским правом.</p>
+                          <p>Точность. Обложка не должна вводить в заблуждение. Например, запрещено изображение другого артиста или ссылка на него, если он не участвует в релизе.</p>
+                          <p>Обложка не должна содержать никакую текстовую информацию кроме имени исполнителя, названия альбома, наименования лейбла, года релиза или имени правообладателя.</p>
+                          <p>Текстовая информация должна в точности совпадать с названиями в релизе. Можно не использовать надписи совсем. Если на обложке указывается версия релиза, она должна совпадать с версий в релизе.</p>
+                          <p>Качество. Принимается только графика в формате JPEG (несжатое качество) и PNG, минимальное разрешение 3000х3000 пикселей, color mode: RGB стандарт (CYMK не поддерживается). Размер по вертикали и по горизонтали должен быть одинаковым (обложка квадратная, 1:1). Изображения не должны быть размытыми, пикселизированными, растянутыми или иметь другие проблемы с качеством.</p>
+                          <p>Культурные особенности. Не допускается пропаганда ненависти по признаку расы, религии, пола, сексуальной ориентации, национального/этнического происхождения или других особенностей.</p>
+                          <p>Дополнительные материалы. Запрещено размещать на обложках:</p>
+                          <ul className="list-disc space-y-1 pl-4">
+                            <li>Ссылки, хэштеги;</li>
+                            <li>Логотипы, защищенные авторским правом, или официальные изображения брендов. Разрешены отсылки, но не очевидный плагиат;</li>
+                            <li>Материалы порнографического или излишне оскорбительного содержания;</li>
+                            <li>пропаганду наркотиков;</li>
+                            <li>затрагивающее расовую, политическую тему;</li>
+                            <li>оскорбления;</li>
+                            <li>лица известных моделей, актеров, артистов, героев мультфильмов, канонизированных лиц, известные картины.</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -666,6 +687,18 @@ export default function ReleaseFormPage() {
                           className="peer sr-only"
                         />
                         <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.explicit ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </span>
+                    </label>
+                    <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
+                      <span className="font-medium text-white">Инструментальная музыка</span>
+                      <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.instrumental ? 'bg-white' : 'bg-zinc-800'}`}>
+                        <input
+                          type="checkbox"
+                          checked={track.instrumental}
+                          onChange={(e) => handleTrackChange(index, 'instrumental', e.target.checked)}
+                          className="peer sr-only"
+                        />
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.instrumental ? 'translate-x-6' : 'translate-x-1'}`} />
                       </span>
                     </label>
                   </div>
@@ -756,9 +789,12 @@ export default function ReleaseFormPage() {
                   </ul>
                 </div>
 
-                <label className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${errors.agreement ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
-                  <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900" />
-                  <span>Подтверждаю корректность данных и права на материалы. Готов отправить релиз на модерацию.</span>
+                <label className={`flex items-center justify-between gap-4 rounded-xl border p-4 text-sm ${errors.agreement ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
+                  <span className="font-medium text-white">Подтверждаю корректность данных и права на материалы. Готов отправить релиз на модерацию.</span>
+                  <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${formData.agreement ? 'bg-white' : 'bg-zinc-800'}`}>
+                    <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="peer sr-only" />
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${formData.agreement ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </span>
                 </label>
               </div>
             )}

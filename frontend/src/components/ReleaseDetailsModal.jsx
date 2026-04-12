@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Barcode,
-  Calendar,
   ChevronDown,
   ChevronRight,
   Download,
+  MoreHorizontal,
   Mail,
   User2,
   X,
@@ -16,8 +15,12 @@ export default function ReleaseDetailsModal({
   onClose,
   actionButtons,
   showOwner = false,
+  onRecall,
+  onDelete,
+  onEdit,
 }) {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const tracks = release?.tracks || [];
 
@@ -40,6 +43,9 @@ export default function ReleaseDetailsModal({
     return value;
   };
   const releaseFields = [
+    { label: 'Название релиза', value: release.title || 'Не указан' },
+    { label: 'Артист', value: release.artists || 'Не указан' },
+    ...(release.subtitle ? [{ label: 'Подзаголовок', value: release.subtitle }] : []),
     { label: 'Жанр', value: release.displayGenre || 'Не указан' },
     { label: 'Тип релиза', value: release.release_type || release.type || 'Не указан' },
     { label: 'Telegram', value: release.metadata?.telegram || 'Не указан' },
@@ -47,6 +53,9 @@ export default function ReleaseDetailsModal({
     { label: 'Spotify', value: profileLabel(release.metadata?.spotify_profile) },
     { label: 'Apple Music', value: profileLabel(release.metadata?.apple_music_profile) },
   ];
+  if (release.metadata?.original_release_date) {
+    releaseFields.push({ label: 'Оригинальная дата релиза', value: release.metadata.original_release_date });
+  }
   if (release.metadata?.moderator_comment) {
     releaseFields.push({ label: 'Комментарий модератора', value: release.metadata.moderator_comment });
   }
@@ -74,6 +83,11 @@ export default function ReleaseDetailsModal({
               <span className={`inline-flex w-full items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                 {statusMeta.label}
               </span>
+              {release.metadata?.moderator_comment ? (
+                <span className="inline-flex w-full items-center justify-center rounded-lg border border-blue-400/20 bg-blue-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-blue-200">
+                  Комм. от модератора
+                </span>
+              ) : null}
 
               <div className="flex justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
                 <span className="text-zinc-500">Дата</span>
@@ -83,6 +97,65 @@ export default function ReleaseDetailsModal({
               <div className="flex justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
                 <span className="text-zinc-500">UPC</span>
                 <span className="font-medium">{release.metadata?.upc || 'Не указан'}</span>
+              </div>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setActionsOpen((prev) => !prev)}
+                  className="secondary-button w-full justify-between"
+                >
+                  Действия
+                  <MoreHorizontal size={16} />
+                </button>
+                {actionsOpen ? (
+                  <div className="absolute left-0 top-12 z-20 w-full rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
+                    {release.status === 'shipped' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRecall?.(release);
+                          setActionsOpen(false);
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
+                      >
+                        Отозвать с площадок
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onEdit?.(release);
+                        setActionsOpen(false);
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
+                    >
+                      Редактировать релиз
+                    </button>
+                    {(release.status === 'moderation' || release.status === 'delivered') ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDelete?.(release);
+                          setActionsOpen(false);
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-200 hover:bg-zinc-800/60"
+                      >
+                        Удалить релиз
+                      </button>
+                    ) : null}
+                    <div className="border-t border-zinc-800/60 pt-2">
+                      <a href={release.cover} download className="block w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60">
+                        Скачать обложку
+                      </a>
+                      {release.metadata?.demo ? (
+                        <a href={release.metadata.demo} target="_blank" rel="noreferrer" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60">
+                          Открыть демо / договор
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {showOwner ? (
@@ -206,11 +279,15 @@ export default function ReleaseDetailsModal({
                         <p className="text-zinc-600">Ненормативная лексика</p>
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.explicit ? 'Да' : 'Нет'}</p>
                       </div>
+                      <div>
+                        <p className="text-zinc-600">Инструментальная музыка</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.instrumental ? 'Да' : 'Нет'}</p>
+                      </div>
                     </div>
                   </div>
 
                   <div className="border-t border-zinc-800/50 pt-6">
-                    <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные релиза</p>
+                    <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
                     <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
                       {releaseFields.map((field) => (
                         <div key={field.label}>
@@ -225,7 +302,7 @@ export default function ReleaseDetailsModal({
 
               {!selectedTrack ? (
                 <div className="border-t border-zinc-800/50 pt-6">
-                  <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные релиза</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
                   <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
                     {releaseFields.map((field) => (
                       <div key={field.label}>
@@ -236,24 +313,6 @@ export default function ReleaseDetailsModal({
                   </div>
                 </div>
               ) : null}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <a href={release.cover} download className="secondary-button justify-center">
-                  <Download size={16} />
-                  Скачать обложку
-                </a>
-                {release.metadata?.demo ? (
-                  <a href={release.metadata.demo} target="_blank" rel="noreferrer" className="secondary-button justify-center">
-                    <Barcode size={16} />
-                    Открыть демо / договор
-                  </a>
-                ) : (
-                  <div className="secondary-button pointer-events-none justify-center opacity-50">
-                    <Calendar size={16} />
-                    Демо не добавлено
-                  </div>
-                )}
-              </div>
             </section>
           </div>
         </div>
