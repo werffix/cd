@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const db = require('./db');
 
 const app = express();
@@ -14,6 +15,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cdcult_super_secret_2026';
 const PORT = process.env.PORT || 3000;
+
+['uploads', 'uploads/covers', 'uploads/tracks'].forEach((dir) => {
+  fs.mkdirSync(path.join(__dirname, dir), { recursive: true });
+});
 
 // Настройка Multer
 const storage = multer.diskStorage({
@@ -97,7 +102,7 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
   uploadTrack(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     
-    const { trackTitle, trackArtists, explicit, isrc } = req.body;
+    const { trackTitle, trackArtists, lyricsAuthors, musicAuthors, explicit, isrc, trackIndex } = req.body;
     const audioUrl = req.file ? `/uploads/tracks/${req.file.filename}` : null;
     const releaseId = req.params.releaseId;
 
@@ -117,13 +122,29 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
       meta.tracks = [];
     }
 
-    meta.tracks.push({
+    const normalizedTrack = {
       title: trackTitle,
+      track_title: trackTitle,
       artists: trackArtists,
+      track_artists: trackArtists,
+      lyrics_authors: lyricsAuthors || '',
+      music_authors: musicAuthors || '',
       explicit: explicit === 'true',
       isrc: isrc,
-      audio_file: audioUrl
-    });
+      audio_file: audioUrl,
+      original_filename: req.file ? req.file.originalname : null,
+      mime_type: req.file ? req.file.mimetype : null
+    };
+
+    const parsedTrackIndex = Number.parseInt(trackIndex, 10);
+    if (Number.isInteger(parsedTrackIndex) && meta.tracks[parsedTrackIndex]) {
+      meta.tracks[parsedTrackIndex] = {
+        ...meta.tracks[parsedTrackIndex],
+        ...normalizedTrack,
+      };
+    } else {
+      meta.tracks.push(normalizedTrack);
+    }
 
     db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(meta), releaseId);
     res.json({ success: true, audio_file: audioUrl });
