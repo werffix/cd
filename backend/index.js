@@ -161,7 +161,7 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
   uploadTrack(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     
-    const { trackTitle, trackArtists, lyricsAuthors, musicAuthors, explicit, isrc, trackIndex } = req.body;
+    const { trackTitle, trackArtists, lyricsAuthors, musicAuthors, explicit, instrumental, isrc, trackIndex } = req.body;
     const audioUrl = req.file ? `/uploads/tracks/${req.file.filename}` : null;
     const releaseId = req.params.releaseId;
 
@@ -189,6 +189,7 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
       lyrics_authors: lyricsAuthors || '',
       music_authors: musicAuthors || '',
       explicit: explicit === 'true',
+      instrumental: instrumental === 'true',
       isrc: isrc,
       audio_file: audioUrl,
       original_filename: req.file ? req.file.originalname : null,
@@ -211,8 +212,29 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
 });
 
 app.get('/api/releases', auth, (req, res) => {
-  const releases = db.prepare('SELECT id, title, artists, status, cover_url, created_at, metadata, release_type FROM releases WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const releases = db.prepare('SELECT id, title, subtitle, artists, status, cover_url, created_at, metadata, release_type FROM releases WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
   res.json(releases);
+});
+
+app.put('/api/releases/:id/status', auth, (req, res) => {
+  const { status } = req.body;
+  const release = db.prepare('SELECT status FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  if (status === 'revoked' && release.status !== 'shipped') {
+    return res.status(400).json({ error: 'Отозвать можно только доставленные релизы' });
+  }
+  db.prepare('UPDATE releases SET status = ? WHERE id = ? AND user_id = ?').run(status, req.params.id, req.user.id);
+  res.json({ success: true });
+});
+
+app.delete('/api/releases/:id', auth, (req, res) => {
+  const release = db.prepare('SELECT status FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  if (!['moderation', 'delivered'].includes(release.status)) {
+    return res.status(400).json({ error: 'Удалить можно только релизы на рассмотрении или ожидающие доставки' });
+  }
+  db.prepare('DELETE FROM releases WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  res.json({ success: true });
 });
 
 app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
