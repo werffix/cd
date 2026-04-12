@@ -216,6 +216,12 @@ app.get('/api/releases', auth, (req, res) => {
   res.json(releases);
 });
 
+app.get('/api/releases/:id', auth, (req, res) => {
+  const release = db.prepare('SELECT * FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  res.json(release);
+});
+
 app.put('/api/releases/:id/status', auth, (req, res) => {
   const { status } = req.body;
   const release = db.prepare('SELECT status FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
