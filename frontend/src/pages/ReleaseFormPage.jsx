@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  ArrowLeft,
   ArrowRight,
   CircleHelp,
   Loader2,
@@ -277,10 +276,7 @@ export default function ReleaseFormPage() {
     <div className="app-shell min-h-screen bg-[#0a0a0a] text-zinc-50">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
         <div className="flex items-center justify-between">
-          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button">
-            <ArrowLeft size={16} />
-            Назад
-          </button>
+          <div />
           <button type="button" onClick={() => nav('/dashboard')} className="secondary-button px-3 py-3">
             <X size={16} />
           </button>
@@ -291,23 +287,45 @@ export default function ReleaseFormPage() {
           <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setStep(item)}
-              className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                item === step
-                  ? 'border-white bg-white text-black'
-                  : stepErrors[item]
-                    ? 'border-red-500/30 bg-red-500/10 text-red-200'
-                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
-              }`}
-            >
-              {['Общие данные', 'Треки', 'Контакты', 'Подтверждение'][item - 1]}
-            </button>
-          ))}
+        <div className="mt-8 flex w-full items-center justify-center">
+          <div className="flex w-full max-w-5xl items-center justify-between gap-6">
+            {[
+              { title: 'Данные релиза', subtitle: 'Основная информация' },
+              { title: 'Треклист', subtitle: 'Треки и архив' },
+              { title: 'Информация', subtitle: 'Контакты и профили' },
+              { title: 'Проверка', subtitle: 'Отправка релиза' },
+            ].map((item, index) => {
+              const currentStep = index + 1;
+              const isActive = currentStep === step;
+              const isError = stepErrors[currentStep];
+              return (
+                <div key={item.title} className="flex flex-1 items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep(currentStep)}
+                    className="flex flex-col items-center text-center"
+                  >
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold transition ${
+                        isActive
+                          ? 'bg-white text-black'
+                          : isError
+                            ? 'bg-red-500/20 text-red-200'
+                            : 'bg-zinc-800/60 text-zinc-300'
+                      }`}
+                    >
+                      {currentStep}
+                    </div>
+                    <div className="mt-3">
+                      <p className={`text-base font-semibold ${isActive ? 'text-white' : 'text-zinc-400'}`}>{item.title}</p>
+                      <p className="text-sm text-zinc-500">{item.subtitle}</p>
+                    </div>
+                  </button>
+                  {currentStep < 4 ? <div className="hidden h-px flex-1 bg-zinc-800/60 md:block" /> : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-6 panel-card p-6">
@@ -541,16 +559,7 @@ export default function ReleaseFormPage() {
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/60 pt-5">
-              <div>
-                {step > 1 && (
-                  <button type="button" onClick={prevStep} className="secondary-button">
-                    <ArrowLeft size={16} />
-                    Назад
-                  </button>
-                )}
-              </div>
-
+            <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-800/60 pt-5">
               {step < 4 ? (
                 <button type="button" onClick={nextStep} className="primary-button">
                   Далее

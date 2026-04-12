@@ -3,6 +3,7 @@ import { CheckCheck, Search, Send, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
+import siteLogo from '../assets/site-logo.png';
 
 const getArtistLabel = (release) =>
   release.artists || release.artist_login || release.artist_email || 'Артист не указан';
@@ -87,10 +88,15 @@ export default function AdminPanel() {
     <div className="app-shell min-h-screen bg-[#0a0a0a] px-4 py-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 pb-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">CDCULT</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
-            <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+              <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">CDCULT</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
+              <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
+            </div>
           </div>
 
           <div className="flex w-full max-w-md items-center gap-3 sm:w-auto">

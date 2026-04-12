@@ -1,5 +1,5 @@
-import { Music2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import siteLogo from '../assets/site-logo.png';
 
 export default function AuthShell({
   title,
@@ -16,8 +16,8 @@ export default function AuthShell({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_28%)]" />
         <div className="relative z-10">
           <div className="mb-8 flex justify-center">
-            <Link to="/login" className="flex h-16 w-16 items-center justify-center rounded-xl bg-white text-black shadow-lg shadow-white/10">
-              <Music2 size={22} />
+            <Link to="/login" className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+              <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
             </Link>
           </div>
 

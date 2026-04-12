@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Music2,
-  Plus,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './apiUpload';
 import ReleaseDetailsModal from './components/ReleaseDetailsModal';
 import { STATUS_META, formatDate, parseRelease } from './lib/releases';
+import siteLogo from './assets/site-logo.png';
 
 export default function DistributionDashboard() {
   const nav = useNavigate();
@@ -34,8 +32,8 @@ export default function DistributionDashboard() {
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black shadow-lg shadow-white/10">
-            <Music2 size={20} />
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+            <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT</h1>

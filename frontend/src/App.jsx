@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
 import DistributionDashboard from './DistributionDashboard';
 import ReleaseFormPage from './pages/ReleaseFormPage';
@@ -21,7 +20,6 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<Protect role="admin"><AdminPanel /></Protect>} />
           <Route path="/dashboard" element={<Protect><DistributionDashboard /></Protect>} />
           <Route path="/dashboard/new" element={<Protect><ReleaseFormPage /></Protect>} />

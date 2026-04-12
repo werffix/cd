@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Barcode,
   Calendar,
@@ -17,11 +17,15 @@ export default function ReleaseDetailsModal({
   actionButtons,
   showOwner = false,
 }) {
-  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
 
   const tracks = release?.tracks || [];
+
+  useEffect(() => {
+    setSelectedTrackIndex(null);
+  }, [release?.id]);
   const selectedTrack = useMemo(
-    () => (tracks.length ? normalizeTrack(tracks[selectedTrackIndex] || tracks[0]) : null),
+    () => (selectedTrackIndex === null ? null : normalizeTrack(tracks[selectedTrackIndex] || tracks[0])),
     [selectedTrackIndex, tracks],
   );
 
@@ -35,11 +39,9 @@ export default function ReleaseDetailsModal({
     if (value === 'create') return 'Создать';
     return value;
   };
-  const detailFields = [
+  const releaseFields = [
     { label: 'Жанр', value: release.displayGenre || 'Не указан' },
     { label: 'Тип релиза', value: release.release_type || release.type || 'Не указан' },
-    { label: 'ISRC', value: selectedTrack?.isrc || 'Не указан' },
-    { label: 'Ненормативная лексика', value: selectedTrack ? (selectedTrack.explicit ? 'Да' : 'Нет') : 'Нет' },
     { label: 'Telegram', value: release.metadata?.telegram || 'Не указан' },
     { label: 'Комментарий', value: release.metadata?.comment || 'Нет комментария' },
     { label: 'Spotify', value: profileLabel(release.metadata?.spotify_profile) },
@@ -66,7 +68,7 @@ export default function ReleaseDetailsModal({
                 <img src={release.cover} alt={release.title} className="aspect-square w-full object-cover" />
               </a>
 
-              <span className={`inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
+              <span className={`inline-flex w-full items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                 {statusMeta.label}
               </span>
 
@@ -178,14 +180,22 @@ export default function ReleaseDetailsModal({
                   </div>
 
                   <div className="border-t border-zinc-800/50 pt-6">
-                    <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Дополнительно</p>
+                    <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные релиза</p>
                     <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
-                      {detailFields.map((field) => (
+                      {releaseFields.map((field) => (
                         <div key={field.label}>
                           <p className="text-zinc-600">{field.label}</p>
                           <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
                         </div>
                       ))}
+                      <div>
+                        <p className="text-zinc-600">ISRC</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
+                      </div>
+                      <div>
+                        <p className="text-zinc-600">Ненормативная лексика</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.explicit ? 'Да' : 'Нет'}</p>
+                      </div>
                       <div>
                         <p className="text-zinc-600">Авторы текста</p>
                         <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
@@ -197,6 +207,20 @@ export default function ReleaseDetailsModal({
                     </div>
                   </div>
                 </>
+              ) : null}
+
+              {!selectedTrack ? (
+                <div className="border-t border-zinc-800/50 pt-6">
+                  <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные релиза</p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
+                    {releaseFields.map((field) => (
+                      <div key={field.label}>
+                        <p className="text-zinc-600">{field.label}</p>
+                        <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : null}
 
               <div className="grid gap-3 sm:grid-cols-2">

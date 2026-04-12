@@ -29,11 +29,10 @@ export default function Login() {
       subtitle=""
       compact
       footer={
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-zinc-400">
           <span>
             Нет аккаунта? <Link to="/register" className="font-semibold text-white">Регистрация</Link>
           </span>
-          <Link to="/admin/login" className="font-semibold text-white">Вход для админов</Link>
         </div>
       }
     >
