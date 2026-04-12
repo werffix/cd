@@ -675,9 +675,7 @@ export default function ReleaseFormPage() {
                           </div>
                         )}
                       </div>
-                      <div className="max-w-sm text-xs text-zinc-400">
-                        <p className="text-sm text-zinc-500">Наведите на текст “Требования к обложке” сверху, чтобы увидеть полный список.</p>
-                      </div>
+                      <div className="max-w-sm text-xs text-zinc-400" />
                     </div>
                   </div>
                 </div>
