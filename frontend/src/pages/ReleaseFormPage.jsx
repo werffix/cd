@@ -302,7 +302,7 @@ export default function ReleaseFormPage() {
             <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
             <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
           </div>
-          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button mt-1 px-3 py-3">
+          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button mt-2 px-3 py-3">
             <X size={16} />
           </button>
         </div>
@@ -348,7 +348,7 @@ export default function ReleaseFormPage() {
           </div>
         </div>
 
-        <div className="mt-6 panel-card p-6">
+        <div className="mx-auto mt-6 w-full max-w-5xl panel-card p-6">
           {step === 1 && (
               <div className="space-y-5">
                 <Field label="Название релиза *" name="release_title" value={formData.release_title} onChange={handleChange} error={errors.release_title} />

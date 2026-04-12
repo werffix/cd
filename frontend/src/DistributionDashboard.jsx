@@ -80,7 +80,7 @@ export default function DistributionDashboard() {
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
             <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
           </div>
@@ -90,10 +90,10 @@ export default function DistributionDashboard() {
           </div>
         </div>
 
-        <div className="relative flex items-center gap-3">
+        <div className="relative flex items-center gap-4">
           <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
             <Plus size={16} />
-            Новый релиз
+            <span className="hidden sm:inline">Новый релиз</span>
           </button>
           <button
             type="button"
@@ -113,7 +113,22 @@ export default function DistributionDashboard() {
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 top-14 z-20 w-48 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
+            <div className="absolute right-0 top-14 z-20 w-64 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
+              <div className="flex items-center gap-3 border-b border-zinc-800/60 px-3 py-3">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
+                  ) : avatarFallback ? (
+                    <span className="text-sm font-semibold">{avatarFallback}</span>
+                  ) : (
+                    <User2 size={18} />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{user?.name || 'Аккаунт'}</p>
+                  <p className="text-xs text-zinc-400">{user?.email || 'email не указан'}</p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
