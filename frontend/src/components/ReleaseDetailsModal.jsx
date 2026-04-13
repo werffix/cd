@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
   Download,
   MoreHorizontal,
   Mail,
@@ -60,6 +61,29 @@ export default function ReleaseDetailsModal({
     releaseFields.push({ label: 'Комментарий модератора', value: release.metadata.moderator_comment });
   }
 
+  const copyValue = async (value) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const copyEnabledLabels = new Set([
+    'Название релиза',
+    'Артист',
+    'UPC',
+    'Telegram',
+    'Spotify',
+    'Apple Music',
+    'Название трека',
+    'Артисты (в треке)',
+    'ФИО авторов текста',
+    'ФИО авторов музыки',
+    'ISRC (опционально)',
+  ]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
       <div
@@ -94,9 +118,16 @@ export default function ReleaseDetailsModal({
                 <span className="font-medium">{formatDate(release.metadata?.release_date || release.created_at)}</span>
               </div>
 
-              <div className="flex justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
+              <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
                 <span className="text-zinc-500">UPC</span>
-                <span className="font-medium">{release.metadata?.upc || 'Не указан'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{release.metadata?.upc || 'Не указан'}</span>
+                  {showOwner && release.metadata?.upc ? (
+                    <button type="button" onClick={() => copyValue(release.metadata?.upc)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                      <Copy size={14} />
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               <div className="relative">
@@ -255,25 +286,60 @@ export default function ReleaseDetailsModal({
                     )}
 
                     <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
-                      <div>
-                        <p className="text-zinc-600">Название трека</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.title}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">Название трека</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.title}</p>
+                        </div>
+                        {showOwner ? (
+                          <button type="button" onClick={() => copyValue(selectedTrack.title)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
-                      <div>
-                        <p className="text-zinc-600">Артисты (в треке)</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.artists}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">Артисты (в треке)</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.artists}</p>
+                        </div>
+                        {showOwner ? (
+                          <button type="button" onClick={() => copyValue(selectedTrack.artists)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
-                      <div>
-                        <p className="text-zinc-600">ФИО авторов текста</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">ФИО авторов текста</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
+                        </div>
+                        {showOwner ? (
+                          <button type="button" onClick={() => copyValue(selectedTrack.lyricsAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
-                      <div>
-                        <p className="text-zinc-600">ФИО авторов музыки</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">ФИО авторов музыки</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
+                        </div>
+                        {showOwner ? (
+                          <button type="button" onClick={() => copyValue(selectedTrack.musicAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
-                      <div>
-                        <p className="text-zinc-600">ISRC (опционально)</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">ISRC (опционально)</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
+                        </div>
+                        {showOwner ? (
+                          <button type="button" onClick={() => copyValue(selectedTrack.isrc)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
                       <div>
                         <p className="text-zinc-600">Ненормативная лексика</p>
@@ -290,9 +356,16 @@ export default function ReleaseDetailsModal({
                     <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
                     <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
                       {releaseFields.map((field) => (
-                        <div key={field.label}>
-                          <p className="text-zinc-600">{field.label}</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
+                        <div key={field.label} className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-zinc-600">{field.label}</p>
+                            <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
+                          </div>
+                          {showOwner && copyEnabledLabels.has(field.label) ? (
+                            <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                              <Copy size={14} />
+                            </button>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -305,9 +378,16 @@ export default function ReleaseDetailsModal({
                   <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
                   <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
                     {releaseFields.map((field) => (
-                      <div key={field.label}>
-                        <p className="text-zinc-600">{field.label}</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
+                      <div key={field.label} className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-zinc-600">{field.label}</p>
+                          <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
+                        </div>
+                        {showOwner && copyEnabledLabels.has(field.label) ? (
+                          <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                            <Copy size={14} />
+                          </button>
+                        ) : null}
                       </div>
                     ))}
                   </div>

@@ -42,6 +42,11 @@
   ::selection {
     @apply bg-white/20 text-white;
   }
+
+  .lucide {
+    fill: currentColor;
+    stroke: none;
+  }
 }
 
 @layer components {

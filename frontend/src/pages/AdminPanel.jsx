@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Search, Send, Trash2, User2, XCircle } from 'lucide-react';
+import { CheckCheck, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, Search, Send, Trash2, User2, Users, BadgeCheck, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
@@ -150,14 +150,6 @@ export default function AdminPanel() {
             Отклонить
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => deleteRelease(release.id)}
-          className={`secondary-button border-red-400/30 bg-red-400/10 text-red-100 hover:bg-red-400/20 ${baseClass}`}
-        >
-          <Trash2 size={15} />
-          Удалить
-        </button>
       </>
     );
   };
@@ -167,19 +159,27 @@ export default function AdminPanel() {
       <div className="flex min-h-screen">
         <aside className={`border-r border-zinc-800/60 bg-[#0f0f0f] transition-all ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className="flex h-20 items-center justify-center border-b border-zinc-800/60">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-white">
-              <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              className="secondary-button px-3 py-3"
+            >
+              {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
           </div>
           <div className="space-y-2 p-4">
-            {['Действия', 'Пользователи', 'Лейблы'].map((label) => (
+            {[
+              { label: 'Действия', icon: LayoutGrid },
+              { label: 'Пользователи', icon: Users },
+              { label: 'Лейблы', icon: BadgeCheck },
+            ].map(({ label, icon: Icon }) => (
               <button
                 key={label}
                 type="button"
                 className="flex w-full items-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-3 py-3 text-sm font-semibold text-zinc-200 hover:bg-zinc-800/50"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold text-white">
-                  {label.slice(0, 1)}
+                  <Icon size={16} />
                 </span>
                 {sidebarOpen ? <span>{label}</span> : null}
               </button>
@@ -195,22 +195,12 @@ export default function AdminPanel() {
                   <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">CDCULT</p>
                   <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
                   <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
                 </div>
               </div>
 
               <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                <div className="relative w-full min-w-[260px]">
-                  <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Поиск по названию или артисту"
-                    className="field-input w-full pl-11"
-                  />
-                </div>
                 <div className="relative">
                   <button
                     type="button"
@@ -267,29 +257,33 @@ export default function AdminPanel() {
                   ) : null}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen((prev) => !prev)}
-                  className="secondary-button px-3 py-3"
-                >
-                  {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-                </button>
               </div>
             </header>
 
-            <div className="flex flex-wrap gap-2">
-              {ADMIN_FILTERS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setFilter(item.key)}
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                    filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2">
+                {ADMIN_FILTERS.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setFilter(item.key)}
+                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                      filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="relative w-full max-w-xs">
+                <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Поиск по названию"
+                  className="field-input w-full pl-11"
+                />
+              </div>
             </div>
 
             <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -299,7 +293,7 @@ export default function AdminPanel() {
                   <div key={release.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl">
                     <button type="button" onClick={() => setSelectedRelease(release)} className="block w-full text-left">
                       <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
-                        <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 hover:scale-105" />
+                        <img src={release.cover} alt={release.title} className="h-full w-full rounded-t-2xl object-cover transition duration-700 hover:scale-105" />
                         <div className="absolute right-3 top-3">
                           <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                             {statusMeta.label}

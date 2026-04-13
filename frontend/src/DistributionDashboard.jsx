@@ -14,6 +14,8 @@ export default function DistributionDashboard() {
   const [selectedRelease, setSelectedRelease] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   const [profile, setProfile] = useState({
     name: user?.name || '',
@@ -77,6 +79,24 @@ export default function DistributionDashboard() {
     setTimeout(() => setSettingsMessage(''), 1600);
   };
 
+  const filteredReleases = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return releases.filter((release) => {
+      const matchesStatus = statusFilter === 'all' ? true : release.status === statusFilter;
+      if (!matchesStatus) return false;
+      if (!needle) return true;
+      return (release.title || '').toLowerCase().includes(needle);
+    });
+  }, [query, releases, statusFilter]);
+
+  const STATUS_FILTERS = [
+    { key: 'all', label: 'Все' },
+    { key: 'shipped', label: 'Доставлен' },
+    { key: 'delivered', label: 'Ожидает доставки' },
+    { key: 'moderation', label: 'На рассмотрении' },
+    { key: 'rejected', label: 'Отклонен' },
+  ];
+
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
@@ -85,7 +105,7 @@ export default function DistributionDashboard() {
             <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT</h1>
+            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT Distribution</h1>
           </div>
         </div>
 
@@ -151,7 +171,32 @@ export default function DistributionDashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
-        {releases.length === 0 ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="relative w-full max-w-md">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию релиза"
+              className="field-input w-full"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {STATUS_FILTERS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setStatusFilter(item.key)}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  statusFilter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredReleases.length === 0 ? (
           <div className="flex min-h-[60vh] items-center justify-center">
             <div className="text-center">
               <p className="text-lg font-semibold text-white">Здесь пока пусто. Создайте первый релиз</p>
@@ -163,7 +208,7 @@ export default function DistributionDashboard() {
           </div>
         ) : (
           <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {releases.map((release) => {
+            {filteredReleases.map((release) => {
               const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
               return (
                 <button

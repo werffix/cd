@@ -304,7 +304,18 @@ export default function ReleaseFormPage() {
   };
 
   const handleTrackAudioSelect = async (index, file) => {
-    handleTrackChange(index, 'audio_file_obj', file || null);
+    if (file) {
+      const ext = file.name.includes('.') ? `.${file.name.split('.').pop()}` : '';
+      const safe = (value, fallback) => (value || fallback).replace(/[\\/:*?"<>|]/g, '').trim() || fallback;
+      const artistPart = safe(formData.tracks[index]?.track_artists, 'Артист');
+      const titlePart = safe(formData.tracks[index]?.track_title, 'Трек');
+      const baseName = `${index + 1}. ${artistPart} - ${titlePart}`;
+      const renamedFile = new File([file], `${baseName}${ext}`, { type: file.type });
+      handleTrackChange(index, 'audio_file_obj', renamedFile);
+      file = renamedFile;
+    } else {
+      handleTrackChange(index, 'audio_file_obj', null);
+    }
     if (!file) return;
 
     setTrackUploads((prev) => {
@@ -377,7 +388,7 @@ export default function ReleaseFormPage() {
       formData.tracks.forEach((track, index) => {
         if (!track.track_title) nextErrors[`track_${index}_title`] = 'Название обязательно';
         if (!track.track_artists) nextErrors[`track_${index}_artists`] = 'Артисты обязательны';
-        if (!track.lyrics_authors) nextErrors[`track_${index}_lyrics`] = 'Укажите авторов';
+        if (!track.instrumental && !track.lyrics_authors) nextErrors[`track_${index}_lyrics`] = 'Укажите авторов';
         if (!track.music_authors) nextErrors[`track_${index}_music`] = 'Укажите авторов';
         if (!track.audio_file_obj && !track.audio_file) nextErrors[`track_${index}_audio`] = 'Загрузите WAV или FLAC';
       });
@@ -626,7 +637,7 @@ export default function ReleaseFormPage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="field-label">Обложка *</span>
+                    <span className="field-label">Выберите или перетащите изображение *</span>
                     <span className="group relative inline-flex items-center text-sm font-semibold text-zinc-300">
                       Требования к обложке
                       <span className="pointer-events-none absolute right-0 top-8 z-10 hidden w-[420px] rounded-xl border border-zinc-700 bg-[#121212] p-4 text-xs text-zinc-200 shadow-2xl group-hover:block">
@@ -657,8 +668,8 @@ export default function ReleaseFormPage() {
                     </span>
                   </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex-1">
-                      <div className="mb-3 flex items-center gap-2 text-zinc-300">
+                    <div className="flex-1 text-left">
+                      <div className="mb-3 flex items-center justify-start gap-2 text-zinc-300">
                         <Upload size={16} />
                         Выберите или перетащите изображение
                       </div>
@@ -708,8 +719,10 @@ export default function ReleaseFormPage() {
 
                     <div className="space-y-4">
                       <Field label="Название трека *" value={track.track_title} onChange={(e) => handleTrackChange(index, 'track_title', e.target.value)} error={errors[`track_${index}_title`]} />
-                      <Field label="Артисты (в треке) *" value={track.track_artists} onChange={(e) => handleTrackChange(index, 'track_artists', e.target.value)} error={errors[`track_${index}_artists`]} />
-                      <Field label="ФИО авторов текста *" value={track.lyrics_authors} onChange={(e) => handleTrackChange(index, 'lyrics_authors', e.target.value)} error={errors[`track_${index}_lyrics`]} />
+                      <Field label="Основные артист(-ы) *" value={track.track_artists} onChange={(e) => handleTrackChange(index, 'track_artists', e.target.value)} error={errors[`track_${index}_artists`]} />
+                      {!track.instrumental ? (
+                        <Field label="ФИО авторов текста *" value={track.lyrics_authors} onChange={(e) => handleTrackChange(index, 'lyrics_authors', e.target.value)} error={errors[`track_${index}_lyrics`]} />
+                      ) : null}
                       <Field label="ФИО авторов музыки *" value={track.music_authors} onChange={(e) => handleTrackChange(index, 'music_authors', e.target.value)} error={errors[`track_${index}_music`]} />
                       <Field label="ISRC (опционально)" value={track.isrc} onChange={(e) => handleTrackChange(index, 'isrc', e.target.value)} />
 
@@ -753,18 +766,24 @@ export default function ReleaseFormPage() {
                         <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.explicit ? 'translate-x-6' : 'translate-x-1'}`} />
                       </span>
                     </label>
-                    <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
-                      <span className="font-medium text-white">Инструментальная музыка</span>
-                      <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.instrumental ? 'bg-white' : 'bg-zinc-800'}`}>
-                        <input
-                          type="checkbox"
-                          checked={track.instrumental}
-                          onChange={(e) => handleTrackChange(index, 'instrumental', e.target.checked)}
-                          className="peer sr-only"
-                        />
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.instrumental ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </span>
-                    </label>
+                      <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
+                        <span className="font-medium text-white">Инструментальная музыка</span>
+                        <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.instrumental ? 'bg-white' : 'bg-zinc-800'}`}>
+                          <input
+                            type="checkbox"
+                            checked={track.instrumental}
+                            onChange={(e) => {
+                              const nextValue = e.target.checked;
+                              handleTrackChange(index, 'instrumental', nextValue);
+                              if (nextValue && !track.lyrics_authors) {
+                                handleTrackChange(index, 'lyrics_authors', '-');
+                              }
+                            }}
+                            className="peer sr-only"
+                          />
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.instrumental ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </span>
+                      </label>
                   </div>
                 ))}
               </div>
