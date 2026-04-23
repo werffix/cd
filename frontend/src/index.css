@@ -67,7 +67,7 @@
   }
 
   .brand-badge {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white text-black shadow-[0_10px_30px_rgba(255,255,255,0.18)];
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-transparent bg-transparent text-white shadow-none;
   }
 
   .section-title {
