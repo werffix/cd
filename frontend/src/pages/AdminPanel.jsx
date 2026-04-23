@@ -191,7 +191,7 @@ export default function AdminPanel() {
           <div className="mx-auto max-w-[1600px] space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 pb-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-white">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                   <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
                 </div>
                 <div>
