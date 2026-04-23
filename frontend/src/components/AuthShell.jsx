@@ -16,7 +16,7 @@ export default function AuthShell({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_28%)]" />
         <div className="relative z-10">
           <div className="mb-8 flex justify-center">
-            <Link to="/login" className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white shadow-lg shadow-white/10">
+            <Link to="/login" className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-transparent shadow-none">
               <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
             </Link>
           </div>
