@@ -16,12 +16,15 @@ export const ADMIN_FILTERS = [
   { key: 'revoked', label: 'Отозван' },
 ];
 
-export const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '');
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+export const API_ORIGIN = /^https?:\/\//.test(API_BASE_URL)
+  ? API_BASE_URL.replace(/\/api\/?$/, '')
+  : '';
 
 export const resolveAssetUrl = (assetPath) => {
   if (!assetPath) return 'https://via.placeholder.com/500';
   if (/^https?:\/\//.test(assetPath)) return assetPath;
-  return `${API_ORIGIN}${assetPath}`;
+  return API_ORIGIN ? `${API_ORIGIN}${assetPath}` : assetPath;
 };
 
 export const formatDate = (value) => {
