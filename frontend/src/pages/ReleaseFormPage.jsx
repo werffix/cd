@@ -183,7 +183,9 @@ export default function ReleaseFormPage() {
         }));
 
         if (release.cover_url) {
-          const coverUrl = release.cover_url.startsWith('http') ? release.cover_url : `${(import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace(/\/api\/?$/, '')}${release.cover_url}`;
+          const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
+          const apiOrigin = /^https?:\/\//.test(apiBaseUrl) ? apiBaseUrl.replace(/\/api\/?$/, '') : '';
+          const coverUrl = release.cover_url.startsWith('http') ? release.cover_url : (apiOrigin ? `${apiOrigin}${release.cover_url}` : release.cover_url);
           setCoverPreview(coverUrl);
         }
         setDraftReleaseId(release.id);
