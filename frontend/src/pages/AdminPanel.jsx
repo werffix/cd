@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCheck, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, Search, Send, Trash2, User2, Users, BadgeCheck, XCircle } from 'lucide-react';
+import { CheckCheck, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, Search, Send, Trash2, User2, Users, BadgeCheck, XCircle, Ticket } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
@@ -16,6 +16,7 @@ export default function AdminPanel() {
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeSection, setActiveSection] = useState('actions');
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
@@ -27,6 +28,8 @@ export default function AdminPanel() {
   const [passwordForm, setPasswordForm] = useState({ old: '', next: '', confirm: '' });
   const [settingsMessage, setSettingsMessage] = useState('');
   const [commentModal, setCommentModal] = useState({ open: false, release: null, status: '', comment: '' });
+  const [upcRequests, setUpcRequests] = useState([]);
+  const [upcDrafts, setUpcDrafts] = useState({});
 
   const fetchReleases = async () => {
     const res = await api.get('/admin/releases');
@@ -35,8 +38,15 @@ export default function AdminPanel() {
     return parsed;
   };
 
+  const fetchUpcRequests = async () => {
+    const res = await api.get('/admin/upc-requests');
+    setUpcRequests(res.data);
+    return res.data;
+  };
+
   useEffect(() => {
     fetchReleases();
+    fetchUpcRequests();
   }, []);
 
   useEffect(() => {
@@ -58,9 +68,16 @@ export default function AdminPanel() {
   };
 
   const saveSettings = () => {
-    updateUser({ ...profile, avatar: avatarPreview });
-    setSettingsMessage('Настройки сохранены');
-    setTimeout(() => setSettingsMessage(''), 1600);
+    api.put('/profile', { ...profile, avatar: avatarPreview })
+      .then((res) => {
+        updateUser(res.data.user);
+        setSettingsMessage('Настройки сохранены');
+        setTimeout(() => setSettingsMessage(''), 1600);
+      })
+      .catch((error) => {
+        setSettingsMessage(error.response?.data?.error || 'Не удалось сохранить настройки');
+        setTimeout(() => setSettingsMessage(''), 2200);
+      });
   };
 
   const handlePasswordSave = () => {
@@ -69,9 +86,19 @@ export default function AdminPanel() {
       setTimeout(() => setSettingsMessage(''), 1600);
       return;
     }
-    setSettingsMessage('Пароль обновлён');
-    setPasswordForm({ old: '', next: '', confirm: '' });
-    setTimeout(() => setSettingsMessage(''), 1600);
+    api.put('/profile', {
+      oldPassword: passwordForm.old,
+      newPassword: passwordForm.next,
+    })
+      .then(() => {
+        setSettingsMessage('Пароль обновлён');
+        setPasswordForm({ old: '', next: '', confirm: '' });
+        setTimeout(() => setSettingsMessage(''), 1600);
+      })
+      .catch((error) => {
+        setSettingsMessage(error.response?.data?.error || 'Не удалось обновить пароль');
+        setTimeout(() => setSettingsMessage(''), 2200);
+      });
   };
 
   const updateStatus = async (id, status, moderatorComment = '') => {
@@ -91,6 +118,19 @@ export default function AdminPanel() {
       const nextSelected = updated[0] || null;
       setSelectedRelease(nextSelected);
     }
+  };
+
+  const saveUpcRequest = async (requestId) => {
+    const upc = (upcDrafts[requestId] || '').trim();
+    if (!upc) {
+      setSettingsMessage('Введите UPC код');
+      setTimeout(() => setSettingsMessage(''), 1800);
+      return;
+    }
+    await api.put(`/admin/upc-requests/${requestId}`, { upc });
+    await Promise.all([fetchUpcRequests(), fetchReleases()]);
+    setSettingsMessage('UPC сохранён');
+    setTimeout(() => setSettingsMessage(''), 1800);
   };
 
   const filteredReleases = useMemo(() => {
@@ -169,16 +209,22 @@ export default function AdminPanel() {
           </div>
           <div className="space-y-2 p-4">
             {[
-              { label: 'Действия', icon: LayoutGrid },
-              { label: 'Пользователи', icon: Users },
-              { label: 'Лейблы', icon: BadgeCheck },
-            ].map(({ label, icon: Icon }) => (
+              { label: 'Действия', icon: LayoutGrid, key: 'actions' },
+              { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
+              { label: 'Пользователи', icon: Users, key: 'users' },
+              { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
+            ].map(({ label, icon: Icon, key }) => (
               <button
                 key={label}
                 type="button"
-                className="flex w-full items-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-3 py-3 text-sm font-semibold text-zinc-200 hover:bg-zinc-800/50"
+                onClick={() => setActiveSection(key || 'actions')}
+                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-sm font-semibold transition ${
+                  activeSection === (key || 'actions')
+                    ? 'border-white bg-white text-black'
+                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/50'
+                }`}
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold text-white">
+                <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${activeSection === (key || 'actions') ? 'bg-black text-white' : 'bg-zinc-800 text-white'}`}>
                   <Icon size={16} />
                 </span>
                 {sidebarOpen ? <span>{label}</span> : null}
@@ -196,7 +242,6 @@ export default function AdminPanel() {
                 </div>
                 <div>
                   <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
-                  <p className="mt-2 text-sm text-zinc-400">Поиск релизов, управление статусами и проверка материалов.</p>
                 </div>
               </div>
 
@@ -260,33 +305,35 @@ export default function AdminPanel() {
               </div>
             </header>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-2">
-                {ADMIN_FILTERS.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setFilter(item.key)}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              <div className="relative w-full max-w-xs">
-                <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Поиск по названию"
-                  className="field-input w-full pl-11"
-                />
-              </div>
-            </div>
+            {activeSection === 'actions' ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {ADMIN_FILTERS.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setFilter(item.key)}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative w-full max-w-xs">
+                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Поиск по названию"
+                      className="field-input w-full pl-11"
+                    />
+                  </div>
+                </div>
 
-            <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
               {filteredReleases.map((release) => {
                 const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                 return (
@@ -327,7 +374,50 @@ export default function AdminPanel() {
                   </div>
                 );
               })}
-            </section>
+                </section>
+              </>
+            ) : activeSection === 'upc' ? (
+              <section className="space-y-4">
+                {upcRequests.length ? upcRequests.map((request) => (
+                  <div key={request.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-lg font-semibold text-white">{request.release_title || 'Без названия'}</p>
+                        <p className="text-sm text-zinc-400">{request.artist_name || request.artist_login || 'Артист не указан'}</p>
+                        <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">
+                          {request.status === 'resolved' ? 'Обработан' : 'Ожидает UPC'}
+                        </p>
+                      </div>
+                      <div className="w-full max-w-sm space-y-3">
+                        <input
+                          value={upcDrafts[request.id] ?? request.upc_code ?? ''}
+                          onChange={(e) => setUpcDrafts((prev) => ({ ...prev, [request.id]: e.target.value }))}
+                          placeholder="Введите UPC код"
+                          className="field-input"
+                          disabled={request.status === 'resolved'}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => saveUpcRequest(request.id)}
+                          className="primary-button w-full"
+                          disabled={request.status === 'resolved'}
+                        >
+                          Сохранить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                    Запросов UPC пока нет.
+                  </div>
+                )}
+              </section>
+            ) : (
+              <section className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                Раздел в работе.
+              </section>
+            )}
           </div>
         </div>
       </div>

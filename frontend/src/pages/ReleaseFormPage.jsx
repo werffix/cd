@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  Check,
   CircleHelp,
   Loader2,
   Plus,
@@ -128,6 +129,7 @@ export default function ReleaseFormPage() {
   const [isDraftCreating, setIsDraftCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [coverRequirementsOpen, setCoverRequirementsOpen] = useState(false);
 
   const selectedGenre = useMemo(() => findGenreNode(formData.main_genre), [formData.main_genre]);
   const currentReleaseDate = formData.release_date;
@@ -640,34 +642,13 @@ export default function ReleaseFormPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-4">
                     <span className="field-label">Выберите или перетащите изображение *</span>
-                    <span className="group relative inline-flex items-center text-sm font-semibold text-zinc-300">
+                    <button
+                      type="button"
+                      onClick={() => setCoverRequirementsOpen(true)}
+                      className="inline-flex items-center text-sm font-semibold text-zinc-300 transition hover:text-white"
+                    >
                       Требования к обложке
-                      <span className="pointer-events-none absolute right-0 top-8 z-10 hidden w-[420px] rounded-xl border border-zinc-700 bg-[#121212] p-4 text-xs text-zinc-200 shadow-2xl group-hover:block">
-                        <p className="font-semibold text-zinc-200">Формат обложки:</p>
-                        <ul className="mt-2 list-disc space-y-1 pl-4">
-                          <li>Формат файла: JPG или PNG.</li>
-                          <li>Минимальное разрешение: 3000 x 3000 пикселей.</li>
-                          <li>Соотношение сторон: 1:1 (размер по вертикали и горизонтали должен быть одинаковым).</li>
-                        </ul>
-                        <p className="mt-3 font-semibold text-zinc-200">Требования к обложке:</p>
-                        <p className="mt-2">Оригинальность. Обложка должна быть оригинальной, не используйте шаблоны или изображения, которые не соответствуют релизу. Нельзя использовать изображения, защищенные авторским правом.</p>
-                        <p className="mt-2">Точность. Обложка не должна вводить в заблуждение. Например, запрещено изображение другого артиста или ссылка на него, если он не участвует в релизе.</p>
-                        <p className="mt-2">Обложка не должна содержать никакую текстовую информацию кроме имени исполнителя, названия альбома, наименования лейбла, года релиза или имени правообладателя.</p>
-                        <p className="mt-2">Текстовая информация должна в точности совпадать с названиями в релизе. Можно не использовать надписи совсем. Если на обложке указывается версия релиза, она должна совпадать с версий в релизе.</p>
-                        <p className="mt-2">Качество. Принимается только графика в формате JPEG (несжатое качество) и PNG, минимальное разрешение 3000х3000 пикселей, color mode: RGB стандарт (CYMK не поддерживается). Размер по вертикали и по горизонтали должен быть одинаковым (обложка квадратная, 1:1). Изображения не должны быть размытыми, пикселизированными, растянутыми или иметь другие проблемы с качеством.</p>
-                        <p className="mt-2">Культурные особенности. Не допускается пропаганда ненависти по признаку расы, религии, пола, сексуальной ориентации, национального/этнического происхождения или других особенностей.</p>
-                        <p className="mt-2 font-semibold text-zinc-200">Дополнительные материалы. Запрещено размещать на обложках:</p>
-                        <ul className="mt-2 list-disc space-y-1 pl-4">
-                          <li>Ссылки, хэштеги;</li>
-                          <li>Логотипы, защищенные авторским правом, или официальные изображения брендов. Разрешены отсылки, но не очевидный плагиат;</li>
-                          <li>Материалы порнографического или излишне оскорбительного содержания;</li>
-                          <li>пропаганду наркотиков;</li>
-                          <li>затрагивающее расовую, политическую тему;</li>
-                          <li>оскорбления;</li>
-                          <li>лица известных моделей, актеров, артистов, героев мультфильмов, канонизированных лиц, известные картины.</li>
-                        </ul>
-                      </span>
-                    </span>
+                    </button>
                   </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1 text-left">
@@ -874,12 +855,12 @@ export default function ReleaseFormPage() {
                   </ul>
                 </div>
 
-                <label className={`flex items-center justify-between gap-4 rounded-xl border p-4 text-sm ${errors.agreement ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'}`}>
-                  <span className="font-medium text-white">Подтверждаю корректность данных и права на материалы. Готов отправить релиз на модерацию.</span>
-                  <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${formData.agreement ? 'bg-white' : 'bg-zinc-800'}`}>
-                    <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="peer sr-only" />
-                    <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${formData.agreement ? 'translate-x-6' : 'translate-x-1'}`} />
+                <label className={`flex items-center gap-4 rounded-xl border p-4 text-sm transition ${errors.agreement ? 'border-red-500/30 bg-red-500/10 text-red-200' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:border-zinc-700'}`}>
+                  <input type="checkbox" checked={formData.agreement} onChange={handleChange} name="agreement" className="sr-only" />
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${formData.agreement ? 'border-white bg-white text-black' : 'border-zinc-700 bg-zinc-950 text-transparent'}`}>
+                    <Check size={15} />
                   </span>
+                  <span className="font-medium text-white">Подтверждаю корректность данных и права на материалы. Готов отправить релиз на модерацию.</span>
                 </label>
               </div>
             )}
@@ -913,6 +894,42 @@ export default function ReleaseFormPage() {
         {submitMessage ? (
           <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-zinc-800/60 bg-[#121212] px-5 py-4 text-sm text-white shadow-2xl">
             {submitMessage}
+          </div>
+        ) : null}
+
+        {coverRequirementsOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6" onClick={() => setCoverRequirementsOpen(false)}>
+            <div className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+                <h3 className="text-xl font-bold text-white">Требования к обложке</h3>
+                <button type="button" onClick={() => setCoverRequirementsOpen(false)} className="secondary-button px-3 py-2">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="mt-5 max-h-[70vh] space-y-3 overflow-y-auto pr-2 text-sm leading-6 text-zinc-300">
+                <p className="font-semibold text-zinc-100">Формат обложки:</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>Формат файла: JPG или PNG.</li>
+                  <li>Минимальное разрешение: 3000 x 3000 пикселей.</li>
+                  <li>Соотношение сторон: 1:1.</li>
+                </ul>
+                <p className="pt-2 font-semibold text-zinc-100">Требования:</p>
+                <p>Оригинальность. Обложка должна быть оригинальной и соответствовать релизу. Нельзя использовать изображения, защищенные авторским правом.</p>
+                <p>Точность. Обложка не должна вводить в заблуждение. Нельзя использовать изображение другого артиста, если он не участвует в релизе.</p>
+                <p>Обложка не должна содержать никакую текстовую информацию кроме имени исполнителя, названия альбома, наименования лейбла, года релиза или имени правообладателя.</p>
+                <p>Текстовая информация должна в точности совпадать с названиями в релизе. Если на обложке указывается версия релиза, она должна совпадать с версией в релизе.</p>
+                <p>Качество. Принимается только JPEG и PNG, минимальное разрешение 3000х3000, color mode RGB. Изображения не должны быть размытыми, пикселизированными или растянутыми.</p>
+                <p>Культурные особенности. Не допускается пропаганда ненависти по признаку расы, религии, пола, сексуальной ориентации, национального или этнического происхождения.</p>
+                <p className="pt-2 font-semibold text-zinc-100">Запрещено размещать:</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>Ссылки и хэштеги.</li>
+                  <li>Логотипы, защищенные авторским правом, или официальные изображения брендов.</li>
+                  <li>Материалы порнографического или излишне оскорбительного содержания.</li>
+                  <li>Пропаганду наркотиков, оскорбления, расовую или политическую тематику.</li>
+                  <li>Лица известных моделей, актеров, артистов, героев мультфильмов, канонизированных лиц и известные картины.</li>
+                </ul>
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

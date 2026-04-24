@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -19,23 +19,21 @@ export default function ReleaseDetailsModal({
   onRecall,
   onDelete,
   onEdit,
+  onRequestUpc,
 }) {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(false);
 
-  const tracks = release?.tracks || [];
-
   useEffect(() => {
     setSelectedTrackIndex(null);
+    setActionsOpen(false);
   }, [release?.id]);
-  const selectedTrack = useMemo(
-    () => (selectedTrackIndex === null ? null : normalizeTrack(tracks[selectedTrackIndex] || tracks[0])),
-    [selectedTrackIndex, tracks],
-  );
 
   if (!release) return null;
 
+  const tracks = release?.tracks || [];
   const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
+
   const profileLabel = (value) => {
     if (!value) return 'Не указано';
     if (value === 'already_submitted') return 'Указывал ранее';
@@ -43,6 +41,7 @@ export default function ReleaseDetailsModal({
     if (value === 'create') return 'Создать';
     return value;
   };
+
   const releaseFields = [
     { label: 'Название релиза', value: release.title || 'Не указан' },
     { label: 'Артист', value: release.artists || 'Не указан' },
@@ -54,21 +53,13 @@ export default function ReleaseDetailsModal({
     { label: 'Spotify', value: profileLabel(release.metadata?.spotify_profile) },
     { label: 'Apple Music', value: profileLabel(release.metadata?.apple_music_profile) },
   ];
+
   if (release.metadata?.original_release_date) {
     releaseFields.push({ label: 'Оригинальная дата релиза', value: release.metadata.original_release_date });
   }
   if (release.metadata?.moderator_comment) {
     releaseFields.push({ label: 'Комментарий модератора', value: release.metadata.moderator_comment });
   }
-
-  const copyValue = async (value) => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(String(value));
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const copyEnabledLabels = new Set([
     'Название релиза',
@@ -77,12 +68,16 @@ export default function ReleaseDetailsModal({
     'Telegram',
     'Spotify',
     'Apple Music',
-    'Название трека',
-    'Артисты (в треке)',
-    'ФИО авторов текста',
-    'ФИО авторов музыки',
-    'ISRC (опционально)',
   ]);
+
+  const copyValue = async (value) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(String(value));
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
@@ -118,16 +113,23 @@ export default function ReleaseDetailsModal({
                 <span className="font-medium">{formatDate(release.metadata?.release_date || release.created_at)}</span>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
-                <span className="text-zinc-500">UPC</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{release.metadata?.upc || 'Не указан'}</span>
-                  {showOwner && release.metadata?.upc ? (
-                    <button type="button" onClick={() => copyValue(release.metadata?.upc)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                      <Copy size={14} />
-                    </button>
-                  ) : null}
+              <div className="rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-zinc-500">UPC</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{release.metadata?.upc || 'Не указан'}</span>
+                    {showOwner && release.metadata?.upc ? (
+                      <button type="button" onClick={() => copyValue(release.metadata?.upc)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                        <Copy size={14} />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
+                {!release.metadata?.upc && !showOwner ? (
+                  <button type="button" onClick={() => onRequestUpc?.(release)} className="secondary-button mt-3 w-full">
+                    Запрос UPC
+                  </button>
+                ) : null}
               </div>
 
               <div className="relative">
@@ -227,172 +229,117 @@ export default function ReleaseDetailsModal({
                     const isActive = selectedTrackIndex === index;
 
                     return (
-                      <button
+                      <div
                         key={`${currentTrack.title}-${index}`}
-                        type="button"
-                        onClick={() => setSelectedTrackIndex((prev) => (prev === index ? null : index))}
-                        className={`group flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
-                          isActive
-                            ? 'border-zinc-700 bg-zinc-800/60'
-                            : 'border-zinc-800/60 bg-zinc-900/30 hover:bg-zinc-800/50'
+                        className={`rounded-xl border transition ${
+                          isActive ? 'border-zinc-700 bg-zinc-800/60' : 'border-zinc-800/60 bg-zinc-900/30'
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          <span className="w-4 text-right text-zinc-600 font-medium">{index + 1}</span>
-                          <span className="text-zinc-200 font-medium group-hover:text-white">{currentTrack.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-zinc-500">
-                          {currentTrack.audioUrl ? (
-                            <a
-                              href={currentTrack.audioUrl}
-                              download={currentTrack.originalFilename || true}
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
-                            >
-                              <Download size={16} />
-                            </a>
-                          ) : null}
-                          {isActive ? <ChevronDown size={18} className="text-zinc-400" /> : <ChevronRight size={18} className="text-zinc-500" />}
-                        </div>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTrackIndex((prev) => (prev === index ? null : index))}
+                          className="group flex w-full items-center justify-between px-4 py-3 text-left"
+                        >
+                          <div className="flex items-center gap-4">
+                            <span className="w-4 text-right font-medium text-zinc-600">{index + 1}</span>
+                            <span className="font-medium text-zinc-200 group-hover:text-white">{currentTrack.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-zinc-500">
+                            {currentTrack.audioUrl ? (
+                              <a
+                                href={currentTrack.audioUrl}
+                                download={currentTrack.originalFilename || true}
+                                onClick={(e) => e.stopPropagation()}
+                                className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+                              >
+                                <Download size={16} />
+                              </a>
+                            ) : null}
+                            {isActive ? <ChevronDown size={18} className="text-zinc-400" /> : <ChevronRight size={18} className="text-zinc-500" />}
+                          </div>
+                        </button>
+
+                        {isActive ? (
+                          <div className="border-t border-zinc-800/70 px-4 py-4">
+                            {currentTrack.audioUrl ? (
+                              <audio controls className="mb-4 w-full" src={currentTrack.audioUrl} />
+                            ) : (
+                              <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
+                                Аудиофайл для этого трека не найден.
+                              </div>
+                            )}
+
+                            <div className="grid gap-4 text-sm md:grid-cols-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-zinc-600">Название трека</p>
+                                  <p className="mt-1 font-medium text-zinc-300">{currentTrack.title}</p>
+                                </div>
+                                {showOwner ? <button type="button" onClick={() => copyValue(currentTrack.title)} className="rounded-md p-1 text-zinc-400 hover:text-white"><Copy size={14} /></button> : null}
+                              </div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-zinc-600">Артисты (в треке)</p>
+                                  <p className="mt-1 font-medium text-zinc-300">{currentTrack.artists}</p>
+                                </div>
+                                {showOwner ? <button type="button" onClick={() => copyValue(currentTrack.artists)} className="rounded-md p-1 text-zinc-400 hover:text-white"><Copy size={14} /></button> : null}
+                              </div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-zinc-600">ФИО авторов текста</p>
+                                  <p className="mt-1 font-medium text-zinc-300">{currentTrack.lyricsAuthors}</p>
+                                </div>
+                                {showOwner ? <button type="button" onClick={() => copyValue(currentTrack.lyricsAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white"><Copy size={14} /></button> : null}
+                              </div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-zinc-600">ФИО авторов музыки</p>
+                                  <p className="mt-1 font-medium text-zinc-300">{currentTrack.musicAuthors}</p>
+                                </div>
+                                {showOwner ? <button type="button" onClick={() => copyValue(currentTrack.musicAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white"><Copy size={14} /></button> : null}
+                              </div>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-zinc-600">ISRC (опционально)</p>
+                                  <p className="mt-1 font-medium text-zinc-300">{currentTrack.isrc || 'Не указан'}</p>
+                                </div>
+                                {showOwner ? <button type="button" onClick={() => copyValue(currentTrack.isrc)} className="rounded-md p-1 text-zinc-400 hover:text-white"><Copy size={14} /></button> : null}
+                              </div>
+                              <div>
+                                <p className="text-zinc-600">Ненормативная лексика</p>
+                                <p className="mt-1 font-medium text-zinc-300">{currentTrack.explicit ? 'Да' : 'Нет'}</p>
+                              </div>
+                              <div>
+                                <p className="text-zinc-600">Инструментальная музыка</p>
+                                <p className="mt-1 font-medium text-zinc-300">{currentTrack.instrumental ? 'Да' : 'Нет'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>
               </div>
 
-              {selectedTrack ? (
-                <>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="border-t border-zinc-800/50 pt-6">
+                <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
+                <div className="mt-5 grid gap-4 text-sm md:grid-cols-2">
+                  {releaseFields.map((field) => (
+                    <div key={field.label} className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.28em] text-zinc-500">Информация о треке</p>
-                        <h4 className="mt-2 text-2xl font-bold text-white">{selectedTrack.title}</h4>
-                        <p className="mt-1 text-zinc-400">{selectedTrack.artists}</p>
+                        <p className="text-zinc-600">{field.label}</p>
+                        <p className="mt-1 break-words font-medium text-zinc-300">{field.value}</p>
                       </div>
-                      {selectedTrack.audioUrl ? (
-                        <a href={selectedTrack.audioUrl} download={selectedTrack.originalFilename || true} className="primary-button">
-                          <Download size={16} />
-                          Скачать файл
-                        </a>
+                      {showOwner && copyEnabledLabels.has(field.label) ? (
+                        <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                          <Copy size={14} />
+                        </button>
                       ) : null}
                     </div>
-
-                    {selectedTrack.audioUrl ? (
-                      <audio controls className="mt-5 w-full" src={selectedTrack.audioUrl} />
-                    ) : (
-                      <div className="mt-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
-                        Аудиофайл для этого трека не найден.
-                      </div>
-                    )}
-
-                    <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">Название трека</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.title}</p>
-                        </div>
-                        {showOwner ? (
-                          <button type="button" onClick={() => copyValue(selectedTrack.title)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">Артисты (в треке)</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.artists}</p>
-                        </div>
-                        {showOwner ? (
-                          <button type="button" onClick={() => copyValue(selectedTrack.artists)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">ФИО авторов текста</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.lyricsAuthors}</p>
-                        </div>
-                        {showOwner ? (
-                          <button type="button" onClick={() => copyValue(selectedTrack.lyricsAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">ФИО авторов музыки</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.musicAuthors}</p>
-                        </div>
-                        {showOwner ? (
-                          <button type="button" onClick={() => copyValue(selectedTrack.musicAuthors)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">ISRC (опционально)</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.isrc || 'Не указан'}</p>
-                        </div>
-                        {showOwner ? (
-                          <button type="button" onClick={() => copyValue(selectedTrack.isrc)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div>
-                        <p className="text-zinc-600">Ненормативная лексика</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.explicit ? 'Да' : 'Нет'}</p>
-                      </div>
-                      <div>
-                        <p className="text-zinc-600">Инструментальная музыка</p>
-                        <p className="mt-1 text-zinc-300 font-medium">{selectedTrack.instrumental ? 'Да' : 'Нет'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-zinc-800/50 pt-6">
-                    <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
-                    <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
-                      {releaseFields.map((field) => (
-                        <div key={field.label} className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-zinc-600">{field.label}</p>
-                            <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
-                          </div>
-                          {showOwner && copyEnabledLabels.has(field.label) ? (
-                            <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                              <Copy size={14} />
-                            </button>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-
-              {!selectedTrack ? (
-                <div className="border-t border-zinc-800/50 pt-6">
-                  <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 text-sm">
-                    {releaseFields.map((field) => (
-                      <div key={field.label} className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-zinc-600">{field.label}</p>
-                          <p className="mt-1 text-zinc-300 font-medium">{field.value}</p>
-                        </div>
-                        {showOwner && copyEnabledLabels.has(field.label) ? (
-                          <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                            <Copy size={14} />
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
+                  ))}
                 </div>
-              ) : null}
+              </div>
             </section>
           </div>
         </div>

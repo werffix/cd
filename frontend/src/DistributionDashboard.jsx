@@ -63,9 +63,16 @@ export default function DistributionDashboard() {
   };
 
   const saveSettings = () => {
-    updateUser({ ...profile, avatar: avatarPreview });
-    setSettingsMessage('Настройки сохранены');
-    setTimeout(() => setSettingsMessage(''), 1600);
+    api.put('/profile', { ...profile, avatar: avatarPreview })
+      .then((res) => {
+        updateUser(res.data.user);
+        setSettingsMessage('Настройки сохранены');
+        setTimeout(() => setSettingsMessage(''), 1600);
+      })
+      .catch((error) => {
+        setSettingsMessage(error.response?.data?.error || 'Не удалось сохранить настройки');
+        setTimeout(() => setSettingsMessage(''), 2200);
+      });
   };
 
   const handlePasswordSave = () => {
@@ -74,9 +81,31 @@ export default function DistributionDashboard() {
       setTimeout(() => setSettingsMessage(''), 1600);
       return;
     }
-    setSettingsMessage('Пароль обновлён');
-    setPasswordForm({ old: '', next: '', confirm: '' });
-    setTimeout(() => setSettingsMessage(''), 1600);
+    api.put('/profile', {
+      oldPassword: passwordForm.old,
+      newPassword: passwordForm.next,
+    })
+      .then(() => {
+        setSettingsMessage('Пароль обновлён');
+        setPasswordForm({ old: '', next: '', confirm: '' });
+        setTimeout(() => setSettingsMessage(''), 1600);
+      })
+      .catch((error) => {
+        setSettingsMessage(error.response?.data?.error || 'Не удалось обновить пароль');
+        setTimeout(() => setSettingsMessage(''), 2200);
+      });
+  };
+
+  const handleRequestUpc = async (release) => {
+    try {
+      await api.post(`/releases/${release.id}/request-upc`);
+      setSettingsMessage('Запрос UPC отправлен');
+      setTimeout(() => setSettingsMessage(''), 1800);
+      fetchReleases();
+    } catch (error) {
+      setSettingsMessage(error.response?.data?.error || 'Не удалось отправить запрос UPC');
+      setTimeout(() => setSettingsMessage(''), 2200);
+    }
   };
 
   const filteredReleases = useMemo(() => {
@@ -171,8 +200,8 @@ export default function DistributionDashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="relative w-full max-w-md">
+        <div className="mb-6 flex flex-wrap items-center gap-5">
+          <div className="relative min-w-[280px] flex-1">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -276,6 +305,7 @@ export default function DistributionDashboard() {
           }
         }}
         onEdit={(release) => nav(`/dashboard/new?edit=${release.id}`)}
+        onRequestUpc={handleRequestUpc}
       />
 
       {settingsOpen ? (
