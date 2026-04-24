@@ -63,6 +63,16 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+const serializeUser = (user) => ({
+  id: user.id,
+  login: user.login,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  telegram: user.telegram || '',
+  avatar: user.avatar || '',
+});
+
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
   const { login, email, name, password, confirmPassword } = req.body;
@@ -71,7 +81,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const result = db.prepare('INSERT INTO users (login, email, name, password) VALUES (?, ?, ?, ?)').run(login, email, name, hash);
     const token = jwt.sign({ id: result.lastInsertRowid, login, role: 'artist' }, JWT_SECRET);
-    res.json({ token, user: { login, email, name, role: 'artist' } });
+    res.json({ token, user: serializeUser({ id: result.lastInsertRowid, login, email, name, role: 'artist', telegram: '', avatar: '' }) });
   } catch { res.status(409).json({ error: 'Логин или email заняты' }); }
 });
 
@@ -80,7 +90,42 @@ app.post('/api/auth/login', async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE login = ? OR email = ?').get(login, login);
   if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Неверный логин или пароль' });
   const token = jwt.sign({ id: user.id, login: user.login, role: user.role }, JWT_SECRET);
-  res.json({ token, user: { id: user.id, login: user.login, name: user.name, email: user.email, role: user.role, telegram: user.telegram || '' } });
+  res.json({ token, user: serializeUser(user) });
+});
+
+app.get('/api/profile', auth, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  res.json(serializeUser(user));
+});
+
+app.put('/api/profile', auth, async (req, res) => {
+  const { name, email, telegram, avatar, oldPassword, newPassword } = req.body;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  const nextName = typeof name === 'string' ? name.trim() : user.name;
+  const nextEmail = typeof email === 'string' ? email.trim() : user.email;
+  const nextTelegram = typeof telegram === 'string' ? telegram.trim() : (user.telegram || '');
+  const nextAvatar = typeof avatar === 'string' ? avatar : (user.avatar || '');
+
+  let nextPassword = user.password;
+  if (newPassword) {
+    if (!oldPassword) return res.status(400).json({ error: 'Укажите текущий пароль' });
+    const matches = await bcrypt.compare(oldPassword, user.password);
+    if (!matches) return res.status(400).json({ error: 'Текущий пароль неверный' });
+    nextPassword = await bcrypt.hash(newPassword, 10);
+  }
+
+  try {
+    db.prepare('UPDATE users SET name = ?, email = ?, telegram = ?, avatar = ?, password = ? WHERE id = ?')
+      .run(nextName, nextEmail, nextTelegram, nextAvatar, nextPassword, req.user.id);
+  } catch (error) {
+    return res.status(409).json({ error: 'Email уже используется' });
+  }
+
+  const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  res.json({ success: true, user: serializeUser(updatedUser) });
 });
 
 // Create Release with Cover
@@ -244,7 +289,7 @@ app.delete('/api/releases/:id', auth, (req, res) => {
 });
 
 app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
-  const releases = db.prepare(`SELECT r.*, u.login as artist_login, u.email as artist_email FROM releases r JOIN users u ON r.user_id = u.id ORDER BY r.created_at DESC`).all();
+  const releases = db.prepare(`SELECT r.*, u.login as artist_login, u.email as artist_email FROM releases r JOIN users u ON r.user_id = u.id WHERE r.status != 'draft' ORDER BY r.created_at DESC`).all();
   res.json(releases);
 });
 
@@ -266,6 +311,70 @@ app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
 
 app.delete('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
   db.prepare('DELETE FROM releases WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/releases/:id/request-upc', auth, (req, res) => {
+  const release = db.prepare('SELECT id, user_id, title, artists, metadata FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+
+  let metadata = {};
+  try {
+    metadata = release.metadata ? JSON.parse(release.metadata) : {};
+  } catch (e) {
+    metadata = {};
+  }
+
+  if (metadata.upc) {
+    return res.status(400).json({ error: 'UPC уже указан для этого релиза' });
+  }
+
+  const existing = db.prepare('SELECT id FROM upc_requests WHERE release_id = ? AND status = ?').get(release.id, 'pending');
+  if (existing) {
+    return res.status(400).json({ error: 'Запрос UPC уже отправлен' });
+  }
+
+  db.prepare('INSERT INTO upc_requests (release_id, user_id, artist_name, release_title) VALUES (?, ?, ?, ?)')
+    .run(release.id, req.user.id, release.artists || '', release.title || '');
+
+  res.json({ success: true });
+});
+
+app.get('/api/admin/upc-requests', auth, adminOnly, (req, res) => {
+  const requests = db.prepare(`
+    SELECT ur.*, u.login as artist_login, u.email as artist_email
+    FROM upc_requests ur
+    JOIN users u ON ur.user_id = u.id
+    ORDER BY
+      CASE WHEN ur.status = 'pending' THEN 0 ELSE 1 END,
+      ur.requested_at DESC
+  `).all();
+  res.json(requests);
+});
+
+app.put('/api/admin/upc-requests/:id', auth, adminOnly, (req, res) => {
+  const { upc } = req.body;
+  const normalizedUpc = typeof upc === 'string' ? upc.trim() : '';
+  if (!normalizedUpc) return res.status(400).json({ error: 'Введите UPC код' });
+
+  const request = db.prepare('SELECT * FROM upc_requests WHERE id = ?').get(req.params.id);
+  if (!request) return res.status(404).json({ error: 'Запрос не найден' });
+
+  const release = db.prepare('SELECT metadata FROM releases WHERE id = ?').get(request.release_id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+
+  let metadata = {};
+  try {
+    metadata = release.metadata ? JSON.parse(release.metadata) : {};
+  } catch (e) {
+    metadata = {};
+  }
+  metadata.upc = normalizedUpc;
+
+  db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), request.release_id);
+  db.prepare('UPDATE upc_requests SET upc_code = ?, status = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(normalizedUpc, 'resolved', req.params.id);
+
   res.json({ success: true });
 });
 
