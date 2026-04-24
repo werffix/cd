@@ -8,6 +8,7 @@ import AuthShell from '../components/AuthShell';
 export default function Login() {
   const [form, setForm] = useState({ login: '', password: '' });
   const [err, setErr] = useState('');
+  const [statusModal, setStatusModal] = useState({ open: false, title: '', reason: '' });
   const { login: authLogin } = useAuth();
   const nav = useNavigate();
 
@@ -19,7 +20,16 @@ export default function Login() {
       authLogin(res.data);
       nav(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (e) {
-      setErr(e.response?.data?.error || 'Ошибка входа');
+      const response = e.response?.data;
+      if (response?.code === 'pending_review' || response?.code === 'registration_rejected' || response?.code === 'account_blocked') {
+        setStatusModal({
+          open: true,
+          title: response.title || 'Доступ временно ограничен',
+          reason: response.reason || response.error || 'Попробуйте позже или свяжитесь с поддержкой.',
+        });
+        return;
+      }
+      setErr(response?.error || 'Ошибка входа');
     }
   };
 
@@ -75,6 +85,25 @@ export default function Login() {
           <ArrowRight size={17} />
         </button>
       </form>
+
+      {statusModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setStatusModal({ open: false, title: '', reason: '' })}>
+          <div
+            className="w-full max-w-md rounded-3xl border border-zinc-800 bg-[#121212] p-6 text-center shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-white">{statusModal.title}</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">{statusModal.reason}</p>
+            <button
+              type="button"
+              onClick={() => setStatusModal({ open: false, title: '', reason: '' })}
+              className="primary-button mt-6 w-full justify-center"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      ) : null}
     </AuthShell>
   );
 }

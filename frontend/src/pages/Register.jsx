@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, AtSign, KeyRound, UserRound } from 'lucide-react';
-import { useAuth } from '../AuthContext';
 import api from '../api';
 import AuthShell from '../components/AuthShell';
 
 export default function Register() {
   const [form, setForm] = useState({ login: '', email: '', name: '', password: '', confirmPassword: '' });
   const [err, setErr] = useState('');
-  const { login } = useAuth();
+  const [successModal, setSuccessModal] = useState({ open: false, title: '', description: '' });
   const nav = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,8 +15,12 @@ export default function Register() {
     setErr('');
     try {
       const res = await api.post('/auth/register', form);
-      login(res.data);
-      nav('/dashboard');
+      setSuccessModal({
+        open: true,
+        title: res.data.title || 'Мы рассмотрим вашу заявку в течение 2 дней',
+        description: res.data.description || 'Проверим данные аккаунта и активируем доступ к кабинету после модерации.',
+      });
+      setForm({ login: '', email: '', name: '', password: '', confirmPassword: '' });
     } catch (e) {
       setErr(e.response?.data?.error || 'Ошибка регистрации');
     }
@@ -90,6 +93,28 @@ export default function Register() {
           <ArrowRight size={17} />
         </button>
       </form>
+
+      {successModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSuccessModal({ open: false, title: '', description: '' })}>
+          <div
+            className="w-full max-w-md rounded-3xl border border-zinc-800 bg-[#121212] p-6 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-white">{successModal.title}</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">{successModal.description}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSuccessModal({ open: false, title: '', description: '' });
+                nav('/login');
+              }}
+              className="primary-button mt-6 w-full justify-center"
+            >
+              Понятно
+            </button>
+          </div>
+        </div>
+      ) : null}
     </AuthShell>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCheck, ChevronDown, ChevronLeft, ChevronRight, LayoutGrid, Search, Send, Trash2, User2, Users, BadgeCheck, XCircle, Ticket } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, KeyRound, LayoutGrid, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
@@ -8,6 +8,13 @@ import { useAuth } from '../AuthContext';
 
 const getArtistLabel = (release) =>
   release.artists || release.artist_login || release.artist_email || 'Артист не указан';
+
+const USER_STATUS_META = {
+  active: { label: 'Активен', badge: 'border-emerald-500/25 bg-emerald-500/15 text-emerald-100' },
+  blocked: { label: 'Заблокирован', badge: 'border-red-500/25 bg-red-500/15 text-red-100' },
+  rejected: { label: 'Отклонён', badge: 'border-amber-500/25 bg-amber-500/15 text-amber-100' },
+  pending: { label: 'На рассмотрении', badge: 'border-blue-500/25 bg-blue-500/15 text-blue-100' },
+};
 
 export default function AdminPanel() {
   const { user, logout, updateUser } = useAuth();
@@ -30,6 +37,11 @@ export default function AdminPanel() {
   const [commentModal, setCommentModal] = useState({ open: false, release: null, status: '', comment: '' });
   const [upcRequests, setUpcRequests] = useState([]);
   const [upcDrafts, setUpcDrafts] = useState({});
+  const [users, setUsers] = useState([]);
+  const [registrationRequests, setRegistrationRequests] = useState([]);
+  const [userModal, setUserModal] = useState({ open: false, loading: false, user: null, releases: [] });
+  const [userActionModal, setUserActionModal] = useState({ open: false, type: '', user: null, reason: '' });
+  const [adminMessage, setAdminMessage] = useState('');
 
   const fetchReleases = async () => {
     const res = await api.get('/admin/releases');
@@ -44,9 +56,23 @@ export default function AdminPanel() {
     return res.data;
   };
 
+  const fetchUsers = async () => {
+    const res = await api.get('/admin/users');
+    setUsers(res.data);
+    return res.data;
+  };
+
+  const fetchRegistrationRequests = async () => {
+    const res = await api.get('/admin/registration-requests');
+    setRegistrationRequests(res.data);
+    return res.data;
+  };
+
   useEffect(() => {
     fetchReleases();
     fetchUpcRequests();
+    fetchUsers();
+    fetchRegistrationRequests();
   }, []);
 
   useEffect(() => {
@@ -57,6 +83,12 @@ export default function AdminPanel() {
       telegram: user?.telegram || '',
     });
   }, [user]);
+
+  useEffect(() => {
+    setQuery('');
+    if (activeSection === 'actions') setFilter('all');
+    if (activeSection === 'users') setFilter('all-users');
+  }, [activeSection]);
 
   const handleAvatarChange = (file) => {
     if (!file) return;
@@ -133,6 +165,94 @@ export default function AdminPanel() {
     setTimeout(() => setSettingsMessage(''), 1800);
   };
 
+  const showAdminMessage = (message) => {
+    setAdminMessage(message);
+    setTimeout(() => setAdminMessage(''), 2200);
+  };
+
+  const openUserModal = async (account) => {
+    setUserModal({ open: true, loading: true, user: account, releases: [] });
+    try {
+      const res = await api.get(`/admin/users/${account.id}`);
+      setUserModal({
+        open: true,
+        loading: false,
+        user: res.data.user,
+        releases: (res.data.releases || []).map(parseRelease),
+      });
+    } catch (error) {
+      setUserModal({ open: true, loading: false, user: account, releases: [] });
+      showAdminMessage(error.response?.data?.error || 'Не удалось загрузить пользователя');
+    }
+  };
+
+  const refreshUsersData = async () => {
+    await Promise.all([fetchUsers(), fetchRegistrationRequests()]);
+    if (userModal.user?.id) {
+      await openUserModal(userModal.user);
+    }
+  };
+
+  const resetUserPassword = async (account) => {
+    try {
+      const res = await api.post(`/admin/users/${account.id}/reset-password`);
+      showAdminMessage(`Новый пароль: ${res.data.password}`);
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось сбросить пароль');
+    }
+  };
+
+  const promoteUser = async (account) => {
+    try {
+      await api.put(`/admin/users/${account.id}/promote`);
+      await refreshUsersData();
+      showAdminMessage('Права администратора выданы');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось выдать админку');
+    }
+  };
+
+  const unblockUser = async (account) => {
+    try {
+      await api.put(`/admin/users/${account.id}/unblock`);
+      await refreshUsersData();
+      showAdminMessage('Пользователь разблокирован');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось разблокировать пользователя');
+    }
+  };
+
+  const submitUserAction = async () => {
+    if (!userActionModal.user) return;
+
+    try {
+      if (userActionModal.type === 'block') {
+        await api.put(`/admin/users/${userActionModal.user.id}/block`, { reason: userActionModal.reason });
+        showAdminMessage('Пользователь заблокирован');
+      }
+
+      if (userActionModal.type === 'reject') {
+        await api.put(`/admin/registration-requests/${userActionModal.user.id}/reject`, { reason: userActionModal.reason });
+        showAdminMessage('Заявка отклонена');
+      }
+
+      setUserActionModal({ open: false, type: '', user: null, reason: '' });
+      await refreshUsersData();
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось выполнить действие');
+    }
+  };
+
+  const approveRegistration = async (account) => {
+    try {
+      await api.put(`/admin/registration-requests/${account.id}/approve`);
+      await refreshUsersData();
+      showAdminMessage('Заявка одобрена');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось одобрить заявку');
+    }
+  };
+
   const filteredReleases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return releases.filter((release) => {
@@ -143,6 +263,24 @@ export default function AdminPanel() {
       return haystack.includes(normalizedQuery);
     });
   }, [filter, query, releases]);
+
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return users.filter((account) => {
+      if (!normalizedQuery) return true;
+      const haystack = `${account.name || ''} ${account.login || ''} ${account.email || ''}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [query, users]);
+
+  const filteredRegistrationRequests = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return registrationRequests.filter((account) => {
+      if (!normalizedQuery) return true;
+      const haystack = `${account.name || ''} ${account.login || ''} ${account.email || ''}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [query, registrationRequests]);
 
   const avatarFallback = useMemo(() => (!avatarPreview ? user?.name?.slice(0, 1)?.toUpperCase() : ''), [avatarPreview, user]);
 
@@ -235,7 +373,7 @@ export default function AdminPanel() {
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1600px] space-y-6">
-            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#000000] pb-5">
+            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                   <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
@@ -413,6 +551,120 @@ export default function AdminPanel() {
                   </div>
                 )}
               </section>
+            ) : activeSection === 'users' ? (
+              <section className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { key: 'all-users', label: 'Пользователи' },
+                      { key: 'registration-requests', label: 'Заявки на регистрацию' },
+                    ].map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setFilter(tab.key)}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          filter === tab.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative w-full max-w-md">
+                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={filter === 'registration-requests' ? 'Поиск по заявкам' : 'Поиск по пользователям'}
+                      className="field-input w-full pl-11"
+                    />
+                  </div>
+                </div>
+
+                {filter === 'registration-requests' ? (
+                  <div className="space-y-4">
+                    {filteredRegistrationRequests.length ? filteredRegistrationRequests.map((account) => (
+                      <div key={account.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-lg font-semibold text-white">{account.name || account.login}</h3>
+                              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${USER_STATUS_META.pending.badge}`}>
+                                {USER_STATUS_META.pending.label}
+                              </span>
+                            </div>
+                            <p className="text-sm text-zinc-400">@{account.login} • {account.email}</p>
+                            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Подана {formatDate(account.created_at)}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button type="button" onClick={() => openUserModal(account)} className="secondary-button">
+                              Открыть
+                            </button>
+                            <button type="button" onClick={() => approveRegistration(account)} className="primary-button">
+                              Одобрить
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserActionModal({ open: true, type: 'reject', user: account, reason: '' })}
+                              className="secondary-button border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                            >
+                              Отклонить
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                        Новых заявок на регистрацию пока нет.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredUsers.length ? filteredUsers.map((account) => {
+                      const statusMeta = USER_STATUS_META[account.account_status] || USER_STATUS_META.active;
+                      return (
+                        <button
+                          key={account.id}
+                          type="button"
+                          onClick={() => openUserModal(account)}
+                          className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5 text-left transition hover:border-zinc-600 hover:bg-zinc-900/70"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
+                                {account.avatar ? (
+                                  <img src={account.avatar} alt={account.name || account.login} className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="text-sm font-semibold">{(account.name || account.login || '?').slice(0, 1).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-white">{account.name || account.login}</h3>
+                                <p className="text-sm text-zinc-400">@{account.login}</p>
+                              </div>
+                            </div>
+                            <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusMeta.badge}`}>
+                              {statusMeta.label}
+                            </span>
+                          </div>
+                          <div className="mt-4 space-y-2 text-sm text-zinc-400">
+                            <p>{account.email}</p>
+                            <p>Роль: <span className="text-zinc-200">{account.role === 'admin' ? 'Админ' : 'Артист'}</span></p>
+                            <p>Релизы: <span className="text-zinc-200">{account.releases_count || 0}</span></p>
+                          </div>
+                        </button>
+                      );
+                    }) : (
+                      <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                        Пользователи не найдены.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
             ) : (
               <section className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
                 Раздел в работе.
@@ -576,6 +828,150 @@ export default function AdminPanel() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {userModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6" onClick={() => setUserModal({ open: false, loading: false, user: null, releases: [] })}>
+          <div
+            className="w-full max-w-4xl rounded-3xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white">{userModal.user?.name || userModal.user?.login || 'Пользователь'}</h2>
+                <p className="mt-1 text-sm text-zinc-400">{userModal.user?.email || 'email не указан'}</p>
+              </div>
+              <button type="button" onClick={() => setUserModal({ open: false, loading: false, user: null, releases: [] })} className="secondary-button">
+                Закрыть
+              </button>
+            </div>
+
+            {userModal.loading ? (
+              <div className="py-10 text-center text-sm text-zinc-400">Загружаем данные пользователя...</div>
+            ) : (
+              <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Профиль</p>
+                    <div className="mt-4 grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
+                      <p>Логин: <span className="text-white">@{userModal.user?.login}</span></p>
+                      <p>Email: <span className="text-white">{userModal.user?.email || 'Не указан'}</span></p>
+                      <p>Роль: <span className="text-white">{userModal.user?.role === 'admin' ? 'Админ' : 'Артист'}</span></p>
+                      <p>Telegram: <span className="text-white">{userModal.user?.telegram || 'Не указан'}</span></p>
+                    </div>
+                    {userModal.user?.status_reason ? (
+                      <div className="mt-4 rounded-2xl border border-zinc-800 bg-[#0f0f0f] px-4 py-3 text-sm text-zinc-300">
+                        Причина: {userModal.user.status_reason}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Релизы</p>
+                      <span className="text-sm text-zinc-400">{userModal.releases.length}</span>
+                    </div>
+                    <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                      {userModal.releases.length ? userModal.releases.map((release) => {
+                        const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
+                        return (
+                          <button
+                            key={release.id}
+                            type="button"
+                            onClick={() => setSelectedRelease(release)}
+                            className="flex w-full items-center gap-3 rounded-2xl border border-zinc-800/60 bg-[#121212] p-3 text-left transition hover:border-zinc-700"
+                          >
+                            <img src={release.cover} alt={release.title} className="h-16 w-16 rounded-xl object-cover" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-white">{release.title}</p>
+                              <p className="truncate text-xs text-zinc-400">{release.artists || 'Артист не указан'}</p>
+                            </div>
+                            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusMeta.badgeClass}`}>
+                              {statusMeta.label}
+                            </span>
+                          </button>
+                        );
+                      }) : (
+                        <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] px-4 py-5 text-sm text-zinc-400">
+                          У пользователя пока нет релизов.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+                  <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Действия</p>
+                  <div className="mt-4 space-y-3">
+                    <button type="button" onClick={() => resetUserPassword(userModal.user)} className="secondary-button w-full justify-center">
+                      <KeyRound size={16} />
+                      Сбросить пароль
+                    </button>
+                    {userModal.user?.role !== 'admin' ? (
+                      <button type="button" onClick={() => promoteUser(userModal.user)} className="secondary-button w-full justify-center">
+                        <ShieldCheck size={16} />
+                        Выдать админку
+                      </button>
+                    ) : null}
+                    {userModal.user?.account_status === 'blocked' ? (
+                      <button type="button" onClick={() => unblockUser(userModal.user)} className="primary-button w-full justify-center">
+                        Разблокировать
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setUserActionModal({ open: true, type: 'block', user: userModal.user, reason: '' })}
+                        className="secondary-button w-full justify-center border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                      >
+                        <Ban size={16} />
+                        Заблокировать
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {userActionModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setUserActionModal({ open: false, type: '', user: null, reason: '' })}>
+          <div
+            className="w-full max-w-lg rounded-3xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-2xl font-bold text-white">
+              {userActionModal.type === 'block' ? 'Блокировка пользователя' : 'Отклонение заявки'}
+            </h3>
+            <p className="mt-2 text-sm text-zinc-400">
+              {userActionModal.type === 'block'
+                ? 'Укажите причину блокировки. Пользователь увидит её при входе в аккаунт.'
+                : 'Укажите причину отклонения. Она будет показана пользователю при входе.'}
+            </p>
+            <textarea
+              rows={5}
+              value={userActionModal.reason}
+              onChange={(e) => setUserActionModal((prev) => ({ ...prev, reason: e.target.value }))}
+              className="field-textarea mt-4"
+              placeholder="Причина"
+            />
+            <div className="mt-4 flex items-center justify-end gap-3">
+              <button type="button" onClick={() => setUserActionModal({ open: false, type: '', user: null, reason: '' })} className="secondary-button">
+                Отмена
+              </button>
+              <button type="button" onClick={submitUserAction} className="primary-button">
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {adminMessage ? (
+        <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-zinc-800/60 bg-[#121212] px-4 py-3 text-sm text-white shadow-2xl">
+          {adminMessage}
         </div>
       ) : null}
     </div>
