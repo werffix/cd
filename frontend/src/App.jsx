@@ -5,6 +5,8 @@ import Register from './pages/Register';
 import AdminPanel from './pages/AdminPanel';
 import DistributionDashboard from './DistributionDashboard';
 import ReleaseFormPage from './pages/ReleaseFormPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 const Protect = ({ children, role }) => {
   const { user, token } = useAuth();
@@ -20,6 +22,8 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/admin" element={<Protect role="admin"><AdminPanel /></Protect>} />
           <Route path="/dashboard" element={<Protect><DistributionDashboard /></Protect>} />
           <Route path="/dashboard/new" element={<Protect><ReleaseFormPage /></Protect>} />

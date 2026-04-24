@@ -102,6 +102,11 @@ export default function DistributionDashboard() {
       setSettingsMessage('Запрос UPC отправлен');
       setTimeout(() => setSettingsMessage(''), 1800);
       fetchReleases();
+      setSelectedRelease((prev) => (
+        prev?.id === release.id
+          ? { ...prev, metadata: { ...(prev.metadata || {}), upc_requested: true } }
+          : prev
+      ));
     } catch (error) {
       setSettingsMessage(error.response?.data?.error || 'Не удалось отправить запрос UPC');
       setTimeout(() => setSettingsMessage(''), 2200);
@@ -128,7 +133,7 @@ export default function DistributionDashboard() {
 
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
-      <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/80 px-6 backdrop-blur-md sm:px-8">
+      <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#000000] px-6 sm:px-8">
         <div className="flex items-center gap-5">
           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
             <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />

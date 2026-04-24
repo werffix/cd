@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -6,10 +6,104 @@ import {
   Download,
   MoreHorizontal,
   Mail,
+  Pause,
+  Play,
   User2,
   X,
 } from 'lucide-react';
 import { STATUS_META, formatDate, normalizeTrack } from '../lib/releases';
+
+function AudioPlayer({ src }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+
+    const handleLoaded = () => setDuration(audio.duration || 0);
+    const handleTime = () => {
+      setCurrentTime(audio.currentTime || 0);
+      setProgress(audio.duration ? (audio.currentTime / audio.duration) * 100 : 0);
+    };
+    const handleEnded = () => setPlaying(false);
+
+    audio.addEventListener('loadedmetadata', handleLoaded);
+    audio.addEventListener('timeupdate', handleTime);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoaded);
+      audio.removeEventListener('timeupdate', handleTime);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [src]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setPlaying(false);
+    setProgress(0);
+    setCurrentTime(0);
+  }, [src]);
+
+  const togglePlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+    await audio.play();
+    setPlaying(true);
+  };
+
+  const handleSeek = (event) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    const nextValue = Number(event.target.value);
+    audio.currentTime = (nextValue / 100) * audio.duration;
+    setProgress(nextValue);
+  };
+
+  const formatTime = (value) => {
+    const total = Number.isFinite(value) ? Math.floor(value) : 0;
+    const minutes = Math.floor(total / 60);
+    const seconds = String(total % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+  };
+
+  return (
+    <div className="mb-4 rounded-xl border border-zinc-800/70 bg-black/40 p-4">
+      <audio ref={audioRef} src={src} preload="metadata" />
+      <div className="flex items-center gap-4">
+        <button type="button" onClick={togglePlayback} className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black transition hover:bg-zinc-200">
+          {playing ? <Pause size={18} /> : <Play size={18} />}
+        </button>
+        <div className="flex-1">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={progress}
+            onChange={handleSeek}
+            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-zinc-800 accent-white"
+          />
+          <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ReleaseDetailsModal({
   release,
@@ -50,8 +144,8 @@ export default function ReleaseDetailsModal({
     { label: 'Тип релиза', value: release.release_type || release.type || 'Не указан' },
     { label: 'Telegram', value: release.metadata?.telegram || 'Не указан' },
     { label: 'Комментарий', value: release.metadata?.comment || 'Нет комментария' },
-    { label: 'Spotify', value: profileLabel(release.metadata?.spotify_profile) },
-    { label: 'Apple Music', value: profileLabel(release.metadata?.apple_music_profile) },
+    { label: 'Spotify', value: release.metadata?.spotify_profile === 'exists' ? (release.metadata?.spotify_link || 'Не указано') : profileLabel(release.metadata?.spotify_profile) },
+    { label: 'Apple Music', value: release.metadata?.apple_music_profile === 'exists' ? (release.metadata?.apple_music_link || 'Не указано') : profileLabel(release.metadata?.apple_music_profile) },
   ];
 
   if (release.metadata?.original_release_date) {
@@ -126,8 +220,13 @@ export default function ReleaseDetailsModal({
                   </div>
                 </div>
                 {!release.metadata?.upc && !showOwner ? (
-                  <button type="button" onClick={() => onRequestUpc?.(release)} className="secondary-button mt-3 w-full">
-                    Запрос UPC
+                  <button
+                    type="button"
+                    onClick={() => onRequestUpc?.(release)}
+                    disabled={Boolean(release.metadata?.upc_requested)}
+                    className="secondary-button mt-3 w-full disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {release.metadata?.upc_requested ? 'Запрос отправлен' : 'Запрос UPC'}
                   </button>
                 ) : null}
               </div>
@@ -262,7 +361,7 @@ export default function ReleaseDetailsModal({
                         {isActive ? (
                           <div className="border-t border-zinc-800/70 px-4 py-4">
                             {currentTrack.audioUrl ? (
-                              <audio controls className="mb-4 w-full" src={currentTrack.audioUrl} />
+                              <AudioPlayer src={currentTrack.audioUrl} />
                             ) : (
                               <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-400">
                                 Аудиофайл для этого трека не найден.

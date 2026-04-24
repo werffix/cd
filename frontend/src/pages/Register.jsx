@@ -29,9 +29,17 @@ export default function Register() {
       subtitle=""
       compact
       footer={
-        <p className="text-sm text-slate-400">
-          Уже есть аккаунт? <Link to="/login" className="font-semibold text-white">Войти</Link>
-        </p>
+        <div className="space-y-3 text-sm text-slate-400">
+          <p>
+            Нажимая на кнопку Создать аккаунт, вы принимаете условия{' '}
+            <Link to="/terms" className="font-semibold text-white">Пользовательского соглашения</Link>{' '}
+            и{' '}
+            <Link to="/privacy" className="font-semibold text-white">Политики конфиденциальности</Link>
+          </p>
+          <p>
+            Уже есть аккаунт? <Link to="/login" className="font-semibold text-white">Войти</Link>
+          </p>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">

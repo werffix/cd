@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import api from './api';
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
@@ -20,6 +21,18 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token'); localStorage.removeItem('user');
     setToken(null); setUser(null);
   };
+
+  useEffect(() => {
+    if (!token) return;
+    api.get('/profile')
+      .then((res) => {
+        localStorage.setItem('user', JSON.stringify(res.data));
+        setUser(res.data);
+      })
+      .catch(() => {
+        logout();
+      });
+  }, [token]);
 
   return <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>{children}</AuthContext.Provider>;
 };

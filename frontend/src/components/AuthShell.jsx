@@ -11,9 +11,9 @@ export default function AuthShell({
   compact = false,
 }) {
   return (
-    <div className="app-shell flex min-h-screen items-center justify-center bg-[#0a0a0a] px-4 py-8 sm:px-6">
-      <section className="glass-card relative w-full max-w-md overflow-hidden p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.14),transparent_28%)]" />
+    <div className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden bg-[#000000] px-4 py-8 sm:px-6">
+      <div className="auth-aurora" />
+      <section className="glass-card relative w-full max-w-md overflow-hidden bg-[#121212] p-6 sm:p-8">
         <div className="relative z-10">
           <div className="mb-8 flex justify-center">
             <Link to="/login" className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-transparent shadow-none">
@@ -30,7 +30,7 @@ export default function AuthShell({
 
           {children}
 
-          {footer && <div className="mt-6 border-t border-white/10 pt-5">{footer}</div>}
+          {footer && <div className="mt-6 border-t border-white/10 pt-5 text-center">{footer}</div>}
         </div>
       </section>
     </div>

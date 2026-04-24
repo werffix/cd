@@ -641,7 +641,7 @@ export default function ReleaseFormPage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="field-label">Выберите или перетащите изображение *</span>
+                    <span className="field-label">Обложка *</span>
                     <button
                       type="button"
                       onClick={() => setCoverRequirementsOpen(true)}
@@ -651,13 +651,15 @@ export default function ReleaseFormPage() {
                     </button>
                   </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex-1 text-left">
+                    <div className="flex flex-1 min-h-[180px] flex-col justify-between text-left">
                       <div className="mb-3 flex items-center justify-start gap-2 text-zinc-300">
                         <Upload size={16} />
                         Выберите или перетащите изображение
                       </div>
-                      <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
-                      {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
+                      <div>
+                        <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
+                        {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
+                      </div>
                     </div>
                     <div className="flex items-start gap-6">
                       <div className="h-28 w-28 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">

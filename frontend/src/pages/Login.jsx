@@ -29,10 +29,8 @@ export default function Login() {
       subtitle=""
       compact
       footer={
-        <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-zinc-400">
-          <span>
-            Нет аккаунта? <Link to="/register" className="font-semibold text-white">Регистрация</Link>
-          </span>
+        <div className="space-y-3 text-sm text-zinc-400">
+          <div>Нет аккаунта? <Link to="/register" className="font-semibold text-white">Регистрация</Link></div>
         </div>
       }
     >
