@@ -334,6 +334,9 @@ app.post('/api/releases/:id/request-upc', auth, (req, res) => {
     return res.status(400).json({ error: 'Запрос UPC уже отправлен' });
   }
 
+  metadata.upc_requested = true;
+  db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), release.id);
+
   db.prepare('INSERT INTO upc_requests (release_id, user_id, artist_name, release_title) VALUES (?, ?, ?, ?)')
     .run(release.id, req.user.id, release.artists || '', release.title || '');
 
@@ -370,6 +373,7 @@ app.put('/api/admin/upc-requests/:id', auth, adminOnly, (req, res) => {
     metadata = {};
   }
   metadata.upc = normalizedUpc;
+  metadata.upc_requested = false;
 
   db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), request.release_id);
   db.prepare('UPDATE upc_requests SET upc_code = ?, status = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?')
