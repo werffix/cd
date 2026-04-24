@@ -54,13 +54,66 @@ const uploadTrack = multer({
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Токен не найден' });
-  try { req.user = jwt.verify(token, JWT_SECRET); next(); }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+    if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
+    const blocked = buildAuthBlockedPayload(user);
+    if (blocked) return res.status(blocked.status).json(blocked.payload);
+    req.user = { id: user.id, login: user.login, role: user.role };
+    next();
+  }
   catch { res.status(401).json({ error: 'Невалидный токен' }); }
 };
 
 const adminOnly = (req, res, next) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Только для админов' });
   next();
+};
+
+const buildAuthBlockedPayload = (user) => {
+  if (user.account_status === 'pending') {
+    return {
+      status: 403,
+      payload: {
+        error: 'Заявка на регистрацию ещё рассматривается',
+        code: 'pending_review',
+        title: 'Мы рассматриваем вашу заявку',
+        reason: 'Проверяем данные аккаунта и доступ к кабинету. Обычно это занимает до 2 дней.',
+      },
+    };
+  }
+
+  if (user.account_status === 'rejected') {
+    return {
+      status: 403,
+      payload: {
+        error: 'Заявка на регистрацию отклонена',
+        code: 'registration_rejected',
+        title: 'Заявка отклонена',
+        reason: user.status_reason || 'Модератор отклонил заявку. Проверьте данные и обратитесь в поддержку.',
+      },
+    };
+  }
+
+  if (user.account_status === 'blocked') {
+    return {
+      status: 403,
+      payload: {
+        error: 'Аккаунт заблокирован',
+        code: 'account_blocked',
+        title: 'Аккаунт заблокирован',
+        reason: user.status_reason || 'Доступ к аккаунту ограничен. Обратитесь к модератору для уточнения деталей.',
+      },
+    };
+  }
+
+  return null;
+};
+
+const generatePassword = () => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  return Array.from({ length: 9 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
 };
 
 const serializeUser = (user) => ({
@@ -71,6 +124,8 @@ const serializeUser = (user) => ({
   role: user.role,
   telegram: user.telegram || '',
   avatar: user.avatar || '',
+  account_status: user.account_status || 'active',
+  status_reason: user.status_reason || '',
 });
 
 // Auth Routes
@@ -79,9 +134,13 @@ app.post('/api/auth/register', async (req, res) => {
   if (password !== confirmPassword) return res.status(400).json({ error: 'Пароли не совпадают' });
   const hash = await bcrypt.hash(password, 10);
   try {
-    const result = db.prepare('INSERT INTO users (login, email, name, password) VALUES (?, ?, ?, ?)').run(login, email, name, hash);
-    const token = jwt.sign({ id: result.lastInsertRowid, login, role: 'artist' }, JWT_SECRET);
-    res.json({ token, user: serializeUser({ id: result.lastInsertRowid, login, email, name, role: 'artist', telegram: '', avatar: '' }) });
+    db.prepare('INSERT INTO users (login, email, name, password, role, account_status, status_reason) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(login, email, name, hash, 'artist', 'pending', '');
+    res.json({
+      success: true,
+      title: 'Мы рассмотрим вашу заявку в течение 2 дней',
+      description: 'Проверим данные аккаунта, после чего откроем доступ к кабинету артиста. Как только заявка будет одобрена, вы сможете войти под своим логином и паролем.',
+    });
   } catch { res.status(409).json({ error: 'Логин или email заняты' }); }
 });
 
@@ -89,6 +148,8 @@ app.post('/api/auth/login', async (req, res) => {
   const { login, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE login = ? OR email = ?').get(login, login);
   if (!user || !(await bcrypt.compare(password, user.password))) return res.status(401).json({ error: 'Неверный логин или пароль' });
+  const blocked = buildAuthBlockedPayload(user);
+  if (blocked) return res.status(blocked.status).json(blocked.payload);
   const token = jwt.sign({ id: user.id, login: user.login, role: user.role }, JWT_SECRET);
   res.json({ token, user: serializeUser(user) });
 });
@@ -311,6 +372,111 @@ app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
 
 app.delete('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
   db.prepare('DELETE FROM releases WHERE id = ?').run(req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/users', auth, adminOnly, (req, res) => {
+  const users = db.prepare(`
+    SELECT
+      u.id,
+      u.login,
+      u.email,
+      u.name,
+      u.role,
+      u.telegram,
+      u.avatar,
+      u.account_status,
+      u.status_reason,
+      u.created_at,
+      COUNT(r.id) AS releases_count
+    FROM users u
+    LEFT JOIN releases r ON r.user_id = u.id AND r.status != 'draft'
+    GROUP BY u.id
+    ORDER BY datetime(u.created_at) DESC
+  `).all();
+  res.json(users.map((item) => ({ ...serializeUser(item), created_at: item.created_at, releases_count: item.releases_count })));
+});
+
+app.get('/api/admin/users/:id', auth, adminOnly, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  const releases = db.prepare(`
+    SELECT id, title, subtitle, artists, status, cover_url, created_at, metadata, release_type
+    FROM releases
+    WHERE user_id = ?
+    ORDER BY datetime(created_at) DESC
+  `).all(req.params.id);
+  res.json({
+    user: serializeUser(user),
+    releases,
+  });
+});
+
+app.post('/api/admin/users/:id/reset-password', auth, adminOnly, async (req, res) => {
+  if (Number(req.params.id) === req.user.id) {
+    return res.status(400).json({ error: 'Нельзя сбросить пароль самому себе этим действием' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  const nextPassword = generatePassword();
+  const hash = await bcrypt.hash(nextPassword, 10);
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.params.id);
+  res.json({ success: true, password: nextPassword });
+});
+
+app.put('/api/admin/users/:id/promote', auth, adminOnly, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  db.prepare('UPDATE users SET role = ?, account_status = ? WHERE id = ?').run('admin', 'active', req.params.id);
+  res.json({ success: true });
+});
+
+app.put('/api/admin/users/:id/block', auth, adminOnly, (req, res) => {
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (!reason) return res.status(400).json({ error: 'Укажите причину блокировки' });
+  if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Нельзя заблокировать самого себя' });
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  db.prepare('UPDATE users SET account_status = ?, status_reason = ? WHERE id = ?').run('blocked', reason, req.params.id);
+  res.json({ success: true });
+});
+
+app.put('/api/admin/users/:id/unblock', auth, adminOnly, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  db.prepare('UPDATE users SET account_status = ?, status_reason = ? WHERE id = ?').run('active', '', req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/registration-requests', auth, adminOnly, (req, res) => {
+  const requests = db.prepare(`
+    SELECT id, login, email, name, role, telegram, avatar, account_status, status_reason, created_at
+    FROM users
+    WHERE account_status = 'pending'
+    ORDER BY datetime(created_at) DESC
+  `).all();
+  res.json(requests.map((item) => ({ ...serializeUser(item), created_at: item.created_at })));
+});
+
+app.put('/api/admin/registration-requests/:id/approve', auth, adminOnly, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Заявка не найдена' });
+  db.prepare('UPDATE users SET account_status = ?, status_reason = ? WHERE id = ?').run('active', '', req.params.id);
+  res.json({ success: true });
+});
+
+app.put('/api/admin/registration-requests/:id/reject', auth, adminOnly, (req, res) => {
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (!reason) return res.status(400).json({ error: 'Укажите причину отклонения' });
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Заявка не найдена' });
+
+  db.prepare('UPDATE users SET account_status = ?, status_reason = ? WHERE id = ?').run('rejected', reason, req.params.id);
   res.json({ success: true });
 });
 

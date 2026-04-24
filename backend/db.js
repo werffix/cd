@@ -43,5 +43,9 @@ const ensureColumn = (table, column, definition) => {
 
 ensureColumn('users', 'telegram', 'TEXT DEFAULT \'\'');
 ensureColumn('users', 'avatar', 'TEXT DEFAULT \'\'');
+ensureColumn('users', 'account_status', 'TEXT DEFAULT \'active\'');
+ensureColumn('users', 'status_reason', 'TEXT DEFAULT \'\'');
+
+db.prepare(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL OR account_status = ''`).run();
 
 module.exports = db;
