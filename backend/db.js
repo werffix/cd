@@ -74,6 +74,8 @@ ensureColumn('users', 'telegram', 'TEXT DEFAULT \'\'');
 ensureColumn('users', 'avatar', 'TEXT DEFAULT \'\'');
 ensureColumn('users', 'account_status', 'TEXT DEFAULT \'active\'');
 ensureColumn('users', 'status_reason', 'TEXT DEFAULT \'\'');
+ensureColumn('support_tickets', 'artist_unread', 'INTEGER DEFAULT 0');
+ensureColumn('support_tickets', 'admin_unread', 'INTEGER DEFAULT 0');
 
 db.prepare(`UPDATE users SET account_status = 'active' WHERE account_status IS NULL OR account_status = ''`).run();
 

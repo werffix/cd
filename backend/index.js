@@ -11,6 +11,19 @@ const db = require('./db');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.get('/uploads/support/:filename', (req, res, next) => {
+  const supportPath = path.join(__dirname, 'uploads', 'support', req.params.filename);
+  if (fs.existsSync(supportPath)) {
+    return res.sendFile(supportPath);
+  }
+
+  const legacyPath = path.join(__dirname, 'uploads', req.params.filename);
+  if (fs.existsSync(legacyPath)) {
+    return res.sendFile(legacyPath);
+  }
+
+  return next();
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cdcult_super_secret_2026';
@@ -25,6 +38,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     if (file.fieldname === 'cover') cb(null, 'uploads/covers');
     else if (file.fieldname === 'track_audio') cb(null, 'uploads/tracks');
+    else if (file.fieldname === 'attachment') cb(null, 'uploads/support');
     else cb(null, 'uploads');
   },
   filename: (req, file, cb) => {
@@ -566,9 +580,9 @@ app.post('/api/support/tickets', auth, (req, res) => {
     if (!category || !subject || !message) return res.status(400).json({ error: 'Заполните раздел, тему и сообщение' });
 
     const result = db.prepare(`
-      INSERT INTO support_tickets (user_id, category, subject)
-      VALUES (?, ?, ?)
-    `).run(req.user.id, category, subject);
+      INSERT INTO support_tickets (user_id, category, subject, admin_unread, artist_unread)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.user.id, category, subject, 1, 0);
     const attachmentUrl = req.file ? `/uploads/support/${req.file.filename}` : '';
     db.prepare(`
       INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
@@ -583,6 +597,7 @@ app.post('/api/support/tickets', auth, (req, res) => {
 app.get('/api/support/tickets/:id', auth, (req, res) => {
   const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!ticket) return res.status(404).json({ error: 'Запрос не найден' });
+  db.prepare('UPDATE support_tickets SET artist_unread = 0 WHERE id = ?').run(req.params.id);
 
   const messages = db.prepare(`
     SELECT sm.*, u.name, u.login
@@ -592,7 +607,7 @@ app.get('/api/support/tickets/:id', auth, (req, res) => {
     ORDER BY datetime(sm.created_at) ASC
   `).all(req.params.id);
   res.json({
-    ticket: serializeSupportTicket(ticket),
+    ticket: serializeSupportTicket({ ...ticket, artist_unread: 0 }),
     messages: messages.map(serializeSupportTicket),
   });
 });
@@ -613,9 +628,16 @@ app.post('/api/support/tickets/:id/messages', auth, (req, res) => {
       INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
       VALUES (?, ?, ?, ?, ?)
     `).run(req.params.id, req.user.id, req.user.role, message, attachmentUrl);
-    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?').run('open', req.params.id);
+    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ?, admin_unread = 1, artist_unread = 0 WHERE id = ?').run('open', req.params.id);
     res.json({ success: true });
   });
+});
+
+app.put('/api/support/tickets/:id/close', auth, (req, res) => {
+  const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!ticket) return res.status(404).json({ error: 'Запрос не найден' });
+  db.prepare('UPDATE support_tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('closed', req.params.id);
+  res.json({ success: true });
 });
 
 app.get('/api/admin/support/tickets', auth, adminOnly, (req, res) => {
@@ -649,7 +671,8 @@ app.get('/api/admin/support/tickets/:id', auth, adminOnly, (req, res) => {
     ORDER BY datetime(sm.created_at) ASC
   `).all(req.params.id);
 
-  res.json({ ticket, messages });
+  db.prepare('UPDATE support_tickets SET admin_unread = 0 WHERE id = ?').run(req.params.id);
+  res.json({ ticket: { ...ticket, admin_unread: 0 }, messages });
 });
 
 app.post('/api/admin/support/tickets/:id/messages', auth, adminOnly, (req, res) => {
@@ -666,7 +689,7 @@ app.post('/api/admin/support/tickets/:id/messages', auth, adminOnly, (req, res) 
       INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
       VALUES (?, ?, ?, ?, ?)
     `).run(req.params.id, req.user.id, req.user.role, message, attachmentUrl);
-    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?').run('open', req.params.id);
+    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ?, artist_unread = 1, admin_unread = 0 WHERE id = ?').run('open', req.params.id);
     res.json({ success: true });
   });
 });
