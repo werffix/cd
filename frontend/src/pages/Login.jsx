@@ -9,6 +9,7 @@ export default function Login() {
   const [form, setForm] = useState({ login: '', password: '' });
   const [err, setErr] = useState('');
   const [statusModal, setStatusModal] = useState({ open: false, title: '', reason: '' });
+  const [devModalOpen, setDevModalOpen] = useState(false);
   const { login: authLogin } = useAuth();
   const nav = useNavigate();
 
@@ -40,7 +41,12 @@ export default function Login() {
       compact
       footer={
         <div className="space-y-3 text-sm text-zinc-400">
-          <div>Нет аккаунта? <Link to="/register" className="font-semibold text-white">Регистрация</Link></div>
+          <div className="flex items-center justify-center gap-2">
+            <span>Нет аккаунта?</span>
+            <Link to="/register" className="font-semibold text-white">Регистрация</Link>
+            <span className="text-zinc-600">-</span>
+            <button type="button" onClick={() => setDevModalOpen(true)} className="font-semibold text-white">Забыли пароль?</button>
+          </div>
         </div>
       }
     >
@@ -101,6 +107,18 @@ export default function Login() {
             >
               Закрыть
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {devModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setDevModalOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-[#121212] p-6 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <h2 className="text-2xl font-bold text-white">Раздел пока в разработке</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">Если нужно восстановить доступ, напишите в поддержку CDCULT.</p>
+            <a href="https://t.me/cdcult_records" target="_blank" rel="noreferrer" className="primary-button mt-6 w-full justify-center">
+              Перейти
+            </a>
           </div>
         </div>
       ) : null}

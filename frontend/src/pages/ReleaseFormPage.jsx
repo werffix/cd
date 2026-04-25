@@ -13,6 +13,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api, { createReleaseWithCover, updateRelease, uploadTrackToReleaseWithProgress } from '../apiUpload';
 import { GENRE_TREE, buildGenreLabel, findGenreNode } from '../data/genres';
+import ArtistShell from '../components/ArtistShell';
 import { useAuth } from '../AuthContext';
 
 const INITIAL_TRACK = {
@@ -97,8 +98,9 @@ export default function ReleaseFormPage() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const editingReleaseId = searchParams.get('edit');
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [step, setStep] = useState(1);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     release_title: '',
     subtitle: '',
@@ -133,6 +135,7 @@ export default function ReleaseFormPage() {
 
   const selectedGenre = useMemo(() => findGenreNode(formData.main_genre), [formData.main_genre]);
   const currentReleaseDate = formData.release_date;
+  const avatarFallback = useMemo(() => user?.name?.slice(0, 1)?.toUpperCase() || '', [user]);
 
   useEffect(() => {
     if (user?.telegram && !formData.telegram) {
@@ -534,7 +537,14 @@ export default function ReleaseFormPage() {
   };
 
   return (
-    <div className="app-shell min-h-screen bg-[#0a0a0a] text-zinc-50">
+    <ArtistShell
+      user={user}
+      avatarPreview={user?.avatar || ''}
+      avatarFallback={avatarFallback}
+      menuOpen={menuOpen}
+      setMenuOpen={setMenuOpen}
+      logout={logout}
+    >
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
         <div className="relative mt-6 flex flex-col items-center text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
@@ -819,26 +829,28 @@ export default function ReleaseFormPage() {
 
             {step === 4 && (
               <div className="space-y-5">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="soft-card p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Сводка релиза</p>
-                    <div className="mt-4 space-y-3 text-sm text-zinc-300">
-                      <p><span className="text-zinc-500">Релиз:</span> {formData.release_title}</p>
-                      <p><span className="text-zinc-500">Артисты:</span> {formData.artists}</p>
-                      <p><span className="text-zinc-500">Жанр:</span> {buildGenreLabel(formData.main_genre, formData.sub_genre) || 'Не указан'}</p>
-                      <p><span className="text-zinc-500">Тип:</span> {formData.release_type}</p>
-                      <p><span className="text-zinc-500">Дата релиза:</span> {currentReleaseDate}</p>
-                    </div>
-                  </div>
-                  <div className="soft-card p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Обложка</p>
-                    {coverPreview ? (
-                      <img src={coverPreview} alt="Cover preview" className="mt-4 aspect-square w-full rounded-lg object-cover" />
-                    ) : (
-                      <div className="mt-4 rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-4 text-sm text-zinc-400">
-                        Обложка не загружена.
+                <div className="soft-card p-5">
+                  <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Сводка релиза</p>
+                      <div className="mt-4 space-y-3 text-sm text-zinc-300">
+                        <p><span className="text-zinc-500">Релиз:</span> {formData.release_title}</p>
+                        <p><span className="text-zinc-500">Артисты:</span> {formData.artists}</p>
+                        <p><span className="text-zinc-500">Жанр:</span> {buildGenreLabel(formData.main_genre, formData.sub_genre) || 'Не указан'}</p>
+                        <p><span className="text-zinc-500">Тип:</span> {formData.release_type}</p>
+                        <p><span className="text-zinc-500">Дата релиза:</span> {currentReleaseDate}</p>
                       </div>
-                    )}
+                    </div>
+                    <div className="w-full max-w-[180px] shrink-0">
+                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Обложка</p>
+                      {coverPreview ? (
+                        <img src={coverPreview} alt="Cover preview" className="mt-4 aspect-square h-[180px] w-[180px] rounded-lg object-cover" />
+                      ) : (
+                        <div className="mt-4 flex h-[180px] w-[180px] items-center justify-center rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-4 text-center text-sm text-zinc-400">
+                          Обложка не загружена.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -935,6 +947,6 @@ export default function ReleaseFormPage() {
           </div>
         ) : null}
       </div>
-    </div>
+    </ArtistShell>
   );
 }

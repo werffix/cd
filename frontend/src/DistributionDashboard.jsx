@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Plus, User2 } from 'lucide-react';
+import { Plus, User2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './apiUpload';
 import ReleaseDetailsModal from './components/ReleaseDetailsModal';
+import ArtistShell from './components/ArtistShell';
 import { STATUS_META, formatDate, parseRelease } from './lib/releases';
-import siteLogo from './assets/site-logo.png';
 import { useAuth } from './AuthContext';
 
 export default function DistributionDashboard() {
@@ -132,78 +132,22 @@ export default function DistributionDashboard() {
   ];
 
   return (
-    <div className="app-shell min-h-screen bg-[#0a0a0a]">
-      <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/90 px-6 backdrop-blur-xl sm:px-8">
-        <div className="flex items-center gap-5">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
-            <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-wide text-white leading-tight">CDCULT Distribution</h1>
-          </div>
-        </div>
-
-        <div className="relative flex items-center gap-4">
-          <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
-            <Plus size={16} />
-            <span className="hidden sm:inline">Новый релиз</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 rounded-full border border-zinc-800/60 bg-zinc-900/40 px-3 py-2 text-sm text-white transition hover:bg-zinc-800/60"
-          >
-            <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-              ) : avatarFallback ? (
-                <span className="text-sm font-semibold">{avatarFallback}</span>
-              ) : (
-                <User2 size={18} />
-              )}
-            </div>
-            <ChevronDown size={16} className="text-zinc-400" />
-          </button>
-
-          {menuOpen ? (
-            <div className="absolute right-0 top-14 z-20 w-64 rounded-xl border border-zinc-800/60 bg-[#121212] p-2 shadow-2xl">
-              <div className="flex items-center gap-3 border-b border-zinc-800/60 px-3 py-3">
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-white">
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : avatarFallback ? (
-                    <span className="text-sm font-semibold">{avatarFallback}</span>
-                  ) : (
-                    <User2 size={18} />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{user?.name || 'Аккаунт'}</p>
-                  <p className="text-xs text-zinc-400">{user?.email || 'email не указан'}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(true);
-                  setMenuOpen(false);
-                }}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
-              >
-                Настройки
-              </button>
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
-              >
-                Выход
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </header>
-
+    <>
+      <ArtistShell
+      user={user}
+      avatarPreview={avatarPreview}
+      avatarFallback={avatarFallback}
+      menuOpen={menuOpen}
+      setMenuOpen={setMenuOpen}
+      logout={logout}
+      setSettingsOpen={setSettingsOpen}
+      actionSlot={(
+        <button type="button" onClick={() => nav('/dashboard/new')} className="primary-button shadow-lg shadow-white/5">
+          <Plus size={16} />
+          <span className="hidden sm:inline">Новый релиз</span>
+        </button>
+      )}
+    >
       <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
         <div className="mb-6 flex flex-wrap items-center gap-5">
           <div className="relative min-w-[280px] flex-1">
@@ -286,6 +230,7 @@ export default function DistributionDashboard() {
           </section>
         )}
       </main>
+      </ArtistShell>
 
       <ReleaseDetailsModal
         release={selectedRelease}
@@ -424,6 +369,6 @@ export default function DistributionDashboard() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

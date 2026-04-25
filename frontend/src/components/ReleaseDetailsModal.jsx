@@ -117,10 +117,12 @@ export default function ReleaseDetailsModal({
 }) {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [commentOpen, setCommentOpen] = useState(false);
 
   useEffect(() => {
     setSelectedTrackIndex(null);
     setActionsOpen(false);
+    setCommentOpen(false);
   }, [release?.id]);
 
   if (!release) return null;
@@ -144,6 +146,7 @@ export default function ReleaseDetailsModal({
     { label: 'Тип релиза', value: release.release_type || release.type || 'Не указан' },
     { label: 'Telegram', value: release.metadata?.telegram || 'Не указан' },
     { label: 'Комментарий', value: release.metadata?.comment || 'Нет комментария' },
+    ...(release.label_name ? [{ label: 'Лейбл', value: release.label_name }] : []),
     { label: 'Spotify', value: release.metadata?.spotify_profile === 'exists' ? (release.metadata?.spotify_link || 'Не указано') : profileLabel(release.metadata?.spotify_profile) },
     { label: 'Apple Music', value: release.metadata?.apple_music_profile === 'exists' ? (release.metadata?.apple_music_link || 'Не указано') : profileLabel(release.metadata?.apple_music_profile) },
   ];
@@ -162,6 +165,7 @@ export default function ReleaseDetailsModal({
     'Telegram',
     'Spotify',
     'Apple Music',
+    'Лейбл',
   ]);
 
   const copyValue = async (value) => {
@@ -169,16 +173,25 @@ export default function ReleaseDetailsModal({
     try {
       await navigator.clipboard.writeText(String(value));
     } catch (error) {
-      console.error(error);
+      const textarea = document.createElement('textarea');
+      textarea.value = String(value);
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#121212] shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
+        <div
+          className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#121212] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-5">
           <h2 className="text-xl font-bold text-white">Подробности релиза</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white">
@@ -197,9 +210,13 @@ export default function ReleaseDetailsModal({
                 {statusMeta.label}
               </span>
               {release.metadata?.moderator_comment ? (
-                <span className="inline-flex w-full items-center justify-center rounded-lg border border-blue-500 bg-blue-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+                <button
+                  type="button"
+                  onClick={() => setCommentOpen(true)}
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-blue-500 bg-blue-500 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white"
+                >
                   Комм. от модератора
-                </span>
+                </button>
               ) : null}
 
               <div className="flex justify-between rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
@@ -264,7 +281,7 @@ export default function ReleaseDetailsModal({
                     >
                       Редактировать релиз
                     </button>
-                    {(release.status === 'moderation' || release.status === 'delivered') ? (
+                    {(release.status === 'draft' || release.status === 'moderation' || release.status === 'delivered') ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -442,7 +459,19 @@ export default function ReleaseDetailsModal({
             </section>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      {commentOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={() => setCommentOpen(false)}>
+          <div className="w-full max-w-lg rounded-3xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold text-white">Комментарий от модератора</h3>
+            <p className="mt-4 whitespace-pre-line text-sm leading-6 text-zinc-300">{release.metadata?.moderator_comment}</p>
+            <button type="button" onClick={() => setCommentOpen(false)} className="primary-button mt-6">
+              Закрыть
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

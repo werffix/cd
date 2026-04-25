@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, BadgeCheck, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, KeyRound, LayoutGrid, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Headphones, KeyRound, LayoutGrid, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
@@ -42,6 +42,10 @@ export default function AdminPanel() {
   const [userModal, setUserModal] = useState({ open: false, loading: false, user: null, releases: [] });
   const [userActionModal, setUserActionModal] = useState({ open: false, type: '', user: null, reason: '' });
   const [adminMessage, setAdminMessage] = useState('');
+  const [supportTickets, setSupportTickets] = useState([]);
+  const [supportModal, setSupportModal] = useState({ open: false, ticket: null, messages: [], reply: '', attachment: null });
+  const [labels, setLabels] = useState([]);
+  const [labelForm, setLabelForm] = useState({ userQuery: '', labelName: '' });
 
   const fetchReleases = async () => {
     const res = await api.get('/admin/releases');
@@ -68,11 +72,25 @@ export default function AdminPanel() {
     return res.data;
   };
 
+  const fetchSupportTickets = async () => {
+    const res = await api.get('/admin/support/tickets');
+    setSupportTickets(res.data);
+    return res.data;
+  };
+
+  const fetchLabels = async () => {
+    const res = await api.get('/admin/labels');
+    setLabels(res.data);
+    return res.data;
+  };
+
   useEffect(() => {
     fetchReleases();
     fetchUpcRequests();
     fetchUsers();
     fetchRegistrationRequests();
+    fetchSupportTickets();
+    fetchLabels();
   }, []);
 
   useEffect(() => {
@@ -253,6 +271,41 @@ export default function AdminPanel() {
     }
   };
 
+  const openSupportTicket = async (ticket) => {
+    const res = await api.get(`/admin/support/tickets/${ticket.id}`);
+    setSupportModal({ open: true, ticket: res.data.ticket, messages: res.data.messages, reply: '', attachment: null });
+  };
+
+  const replySupportTicket = async () => {
+    if (!supportModal.ticket) return;
+    const data = new FormData();
+    data.append('message', supportModal.reply);
+    if (supportModal.attachment) data.append('attachment', supportModal.attachment);
+    await api.post(`/admin/support/tickets/${supportModal.ticket.id}/messages`, data);
+    await fetchSupportTickets();
+    await openSupportTicket(supportModal.ticket);
+    showAdminMessage('Ответ отправлен');
+  };
+
+  const closeSupportTicket = async () => {
+    if (!supportModal.ticket) return;
+    await api.put(`/admin/support/tickets/${supportModal.ticket.id}/close`);
+    await fetchSupportTickets();
+    await openSupportTicket(supportModal.ticket);
+    showAdminMessage('Тикет закрыт');
+  };
+
+  const saveLabel = async () => {
+    try {
+      await api.post('/admin/labels', labelForm);
+      setLabelForm({ userQuery: '', labelName: '' });
+      await Promise.all([fetchLabels(), fetchReleases()]);
+      showAdminMessage('Лейбл сохранён');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось сохранить лейбл');
+    }
+  };
+
   const filteredReleases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return releases.filter((release) => {
@@ -350,6 +403,7 @@ export default function AdminPanel() {
               { label: 'Действия', icon: LayoutGrid, key: 'actions' },
               { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
               { label: 'Пользователи', icon: Users, key: 'users' },
+              { label: 'Поддержка', icon: Headphones, key: 'support' },
               { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
             ].map(({ label, icon: Icon, key }) => (
               <button
@@ -374,14 +428,14 @@ export default function AdminPanel() {
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1600px] space-y-6">
             <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-transparent">
-                  <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-transparent">
+                    <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+                  </div>
+                  <div>
+                    <h1 className="text-[28px] font-bold tracking-tight text-white">Панель модерации</h1>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Панель модерации</h1>
-                </div>
-              </div>
 
               <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                 <div className="relative">
@@ -664,6 +718,69 @@ export default function AdminPanel() {
                     )}
                   </div>
                 )}
+              </section>
+            ) : activeSection === 'support' ? (
+              <section className="space-y-4">
+                {supportTickets.length ? supportTickets.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    type="button"
+                    onClick={() => openSupportTicket(ticket)}
+                    className="w-full rounded-2xl border border-zinc-800/60 bg-[#121212] p-5 text-left transition hover:border-zinc-700"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-white">{ticket.subject}</p>
+                        <p className="mt-1 text-sm text-zinc-400">{ticket.name || ticket.login} • {ticket.email}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="rounded-full border border-zinc-800/60 bg-zinc-900/40 px-3 py-1 text-xs text-zinc-300">{ticket.category}</span>
+                        <span className={`rounded-full border px-3 py-1 text-xs ${ticket.status === 'closed' ? 'border-zinc-700 bg-zinc-900/50 text-zinc-400' : 'border-emerald-500/25 bg-emerald-500/15 text-emerald-100'}`}>
+                          {ticket.status === 'closed' ? 'Закрыт' : 'Открыт'}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                )) : (
+                  <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                    Запросов в поддержку пока нет.
+                  </div>
+                )}
+              </section>
+            ) : activeSection === 'labels' ? (
+              <section className="space-y-5">
+                <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5">
+                  <h3 className="text-lg font-semibold text-white">Добавить лейбл</h3>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <input
+                      value={labelForm.userQuery}
+                      onChange={(e) => setLabelForm((prev) => ({ ...prev, userQuery: e.target.value }))}
+                      placeholder="Логин аккаунта или email"
+                      className="field-input"
+                    />
+                    <input
+                      value={labelForm.labelName}
+                      onChange={(e) => setLabelForm((prev) => ({ ...prev, labelName: e.target.value }))}
+                      placeholder="Название лейбла"
+                      className="field-input"
+                    />
+                  </div>
+                  <button type="button" onClick={saveLabel} className="primary-button mt-4">
+                    Сохранить
+                  </button>
+                </div>
+                <div className="grid gap-4">
+                  {labels.length ? labels.map((label) => (
+                    <div key={label.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5">
+                      <p className="text-lg font-semibold text-white">{label.label_name}</p>
+                      <p className="mt-1 text-sm text-zinc-400">{label.name || label.login} • {label.email}</p>
+                    </div>
+                  )) : (
+                    <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                      Лейблы пока не добавлены.
+                    </div>
+                  )}
+                </div>
               </section>
             ) : (
               <section className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
@@ -965,6 +1082,63 @@ export default function AdminPanel() {
                 Сохранить
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {supportModal.open && supportModal.ticket ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setSupportModal({ open: false, ticket: null, messages: [], reply: '', attachment: null })}>
+          <div className="w-full max-w-3xl rounded-3xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div>
+                <h3 className="text-2xl font-bold text-white">{supportModal.ticket.subject}</h3>
+                <p className="mt-1 text-sm text-zinc-400">{supportModal.ticket.name || supportModal.ticket.login} • {supportModal.ticket.category}</p>
+              </div>
+              <button type="button" onClick={() => setSupportModal({ open: false, ticket: null, messages: [], reply: '', attachment: null })} className="secondary-button">
+                Закрыть
+              </button>
+            </div>
+            <div className="mt-5 max-h-[52vh] space-y-3 overflow-y-auto pr-1">
+              {supportModal.messages.map((entry) => (
+                <div key={entry.id} className={`rounded-2xl border p-4 ${entry.author_role === 'admin' ? 'border-blue-500/20 bg-blue-500/10' : 'border-zinc-800/60 bg-zinc-900/40'}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{entry.author_role === 'admin' ? 'Администратор' : (entry.name || entry.login || 'Артист')}</p>
+                    <p className="text-xs text-zinc-500">{formatDate(entry.created_at)}</p>
+                  </div>
+                  <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">{entry.message}</p>
+                  {entry.attachment_url ? (
+                    <a href={entry.attachment_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-medium text-white">
+                      Открыть вложение
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            {supportModal.ticket.status !== 'closed' ? (
+              <div className="mt-5 space-y-4 border-t border-zinc-800 pt-4">
+                <textarea
+                  className="field-textarea"
+                  rows={4}
+                  value={supportModal.reply}
+                  onChange={(e) => setSupportModal((prev) => ({ ...prev, reply: e.target.value }))}
+                  placeholder="Ответить на запрос..."
+                />
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.pdf,.doc,.docx"
+                  onChange={(e) => setSupportModal((prev) => ({ ...prev, attachment: e.target.files?.[0] || null }))}
+                  className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black"
+                />
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" onClick={replySupportTicket} className="primary-button">
+                    Ответить
+                  </button>
+                  <button type="button" onClick={closeSupportTicket} className="secondary-button">
+                    Закрыть тикет
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
