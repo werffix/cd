@@ -16,7 +16,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const JWT_SECRET = process.env.JWT_SECRET || 'cdcult_super_secret_2026';
 const PORT = process.env.PORT || 3000;
 
-['uploads', 'uploads/covers', 'uploads/tracks'].forEach((dir) => {
+['uploads', 'uploads/covers', 'uploads/tracks', 'uploads/support'].forEach((dir) => {
   fs.mkdirSync(path.join(__dirname, dir), { recursive: true });
 });
 
@@ -50,6 +50,16 @@ const uploadTrack = multer({
     else cb(new Error('Только аудио файлы!'), false);
   }
 }).single('track_audio');
+
+const uploadSupportAttachment = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedExt = /\.(png|jpe?g|pdf|doc|docx)$/i.test(file.originalname);
+    if (allowedExt || file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Допустимы только PNG, JPG, PDF, DOC и DOCX'), false);
+  },
+}).single('attachment');
 
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -126,6 +136,11 @@ const serializeUser = (user) => ({
   avatar: user.avatar || '',
   account_status: user.account_status || 'active',
   status_reason: user.status_reason || '',
+});
+
+const serializeSupportTicket = (ticket) => ({
+  ...ticket,
+  attachment_url: ticket.attachment_url || '',
 });
 
 // Auth Routes
@@ -318,12 +333,23 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
 });
 
 app.get('/api/releases', auth, (req, res) => {
-  const releases = db.prepare('SELECT id, title, subtitle, artists, status, cover_url, created_at, metadata, release_type FROM releases WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const releases = db.prepare(`
+    SELECT r.id, r.title, r.subtitle, r.artists, r.status, r.cover_url, r.created_at, r.metadata, r.release_type, l.label_name
+    FROM releases r
+    LEFT JOIN labels l ON l.user_id = r.user_id
+    WHERE r.user_id = ?
+    ORDER BY r.created_at DESC
+  `).all(req.user.id);
   res.json(releases);
 });
 
 app.get('/api/releases/:id', auth, (req, res) => {
-  const release = db.prepare('SELECT * FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  const release = db.prepare(`
+    SELECT r.*, l.label_name
+    FROM releases r
+    LEFT JOIN labels l ON l.user_id = r.user_id
+    WHERE r.id = ? AND r.user_id = ?
+  `).get(req.params.id, req.user.id);
   if (!release) return res.status(404).json({ error: 'Релиз не найден' });
   res.json(release);
 });
@@ -342,15 +368,22 @@ app.put('/api/releases/:id/status', auth, (req, res) => {
 app.delete('/api/releases/:id', auth, (req, res) => {
   const release = db.prepare('SELECT status FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!release) return res.status(404).json({ error: 'Релиз не найден' });
-  if (!['moderation', 'delivered'].includes(release.status)) {
-    return res.status(400).json({ error: 'Удалить можно только релизы на рассмотрении или ожидающие доставки' });
+  if (!['draft', 'moderation', 'delivered'].includes(release.status)) {
+    return res.status(400).json({ error: 'Удалить можно только черновики, релизы на рассмотрении или ожидающие доставки' });
   }
   db.prepare('DELETE FROM releases WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
   res.json({ success: true });
 });
 
 app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
-  const releases = db.prepare(`SELECT r.*, u.login as artist_login, u.email as artist_email FROM releases r JOIN users u ON r.user_id = u.id WHERE r.status != 'draft' ORDER BY r.created_at DESC`).all();
+  const releases = db.prepare(`
+    SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
+    FROM releases r
+    JOIN users u ON r.user_id = u.id
+    LEFT JOIN labels l ON l.user_id = u.id
+    WHERE r.status != 'draft'
+    ORDER BY r.created_at DESC
+  `).all();
   res.json(releases);
 });
 
@@ -477,6 +510,171 @@ app.put('/api/admin/registration-requests/:id/reject', auth, adminOnly, (req, re
   if (!user) return res.status(404).json({ error: 'Заявка не найдена' });
 
   db.prepare('UPDATE users SET account_status = ?, status_reason = ? WHERE id = ?').run('rejected', reason, req.params.id);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/labels', auth, adminOnly, (req, res) => {
+  const labels = db.prepare(`
+    SELECT l.*, u.login, u.email, u.name
+    FROM labels l
+    JOIN users u ON u.id = l.user_id
+    ORDER BY datetime(l.updated_at) DESC
+  `).all();
+  res.json(labels);
+});
+
+app.post('/api/admin/labels', auth, adminOnly, (req, res) => {
+  const userQuery = typeof req.body.userQuery === 'string' ? req.body.userQuery.trim() : '';
+  const labelName = typeof req.body.labelName === 'string' ? req.body.labelName.trim() : '';
+  if (!userQuery || !labelName) return res.status(400).json({ error: 'Укажите логин/email и название лейбла' });
+
+  const targetUser = db.prepare('SELECT * FROM users WHERE login = ? OR email = ?').get(userQuery, userQuery);
+  if (!targetUser) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  db.prepare(`
+    INSERT INTO labels (user_id, label_name, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id) DO UPDATE SET
+      label_name = excluded.label_name,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(targetUser.id, labelName);
+
+  res.json({ success: true });
+});
+
+app.get('/api/support/tickets', auth, (req, res) => {
+  const tickets = db.prepare(`
+    SELECT st.*, COUNT(sm.id) AS messages_count
+    FROM support_tickets st
+    LEFT JOIN support_messages sm ON sm.ticket_id = st.id
+    WHERE st.user_id = ?
+    GROUP BY st.id
+    ORDER BY
+      CASE WHEN st.status = 'open' THEN 0 ELSE 1 END,
+      datetime(st.updated_at) DESC
+  `).all(req.user.id);
+  res.json(tickets.map(serializeSupportTicket));
+});
+
+app.post('/api/support/tickets', auth, (req, res) => {
+  uploadSupportAttachment(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+
+    const category = typeof req.body.category === 'string' ? req.body.category.trim() : '';
+    const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    if (!category || !subject || !message) return res.status(400).json({ error: 'Заполните раздел, тему и сообщение' });
+
+    const result = db.prepare(`
+      INSERT INTO support_tickets (user_id, category, subject)
+      VALUES (?, ?, ?)
+    `).run(req.user.id, category, subject);
+    const attachmentUrl = req.file ? `/uploads/support/${req.file.filename}` : '';
+    db.prepare(`
+      INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(result.lastInsertRowid, req.user.id, req.user.role, message, attachmentUrl);
+    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(result.lastInsertRowid);
+
+    res.json({ success: true, id: result.lastInsertRowid });
+  });
+});
+
+app.get('/api/support/tickets/:id', auth, (req, res) => {
+  const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!ticket) return res.status(404).json({ error: 'Запрос не найден' });
+
+  const messages = db.prepare(`
+    SELECT sm.*, u.name, u.login
+    FROM support_messages sm
+    LEFT JOIN users u ON u.id = sm.user_id
+    WHERE sm.ticket_id = ?
+    ORDER BY datetime(sm.created_at) ASC
+  `).all(req.params.id);
+  res.json({
+    ticket: serializeSupportTicket(ticket),
+    messages: messages.map(serializeSupportTicket),
+  });
+});
+
+app.post('/api/support/tickets/:id/messages', auth, (req, res) => {
+  uploadSupportAttachment(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+
+    const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+    if (!ticket) return res.status(404).json({ error: 'Запрос не найден' });
+    if (ticket.status === 'closed') return res.status(400).json({ error: 'Тикет уже закрыт' });
+
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    if (!message) return res.status(400).json({ error: 'Введите сообщение' });
+    const attachmentUrl = req.file ? `/uploads/support/${req.file.filename}` : '';
+
+    db.prepare(`
+      INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.params.id, req.user.id, req.user.role, message, attachmentUrl);
+    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?').run('open', req.params.id);
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/admin/support/tickets', auth, adminOnly, (req, res) => {
+  const tickets = db.prepare(`
+    SELECT st.*, u.login, u.email, u.name, COUNT(sm.id) AS messages_count
+    FROM support_tickets st
+    JOIN users u ON u.id = st.user_id
+    LEFT JOIN support_messages sm ON sm.ticket_id = st.id
+    GROUP BY st.id
+    ORDER BY
+      CASE WHEN st.status = 'open' THEN 0 ELSE 1 END,
+      datetime(st.updated_at) DESC
+  `).all();
+  res.json(tickets);
+});
+
+app.get('/api/admin/support/tickets/:id', auth, adminOnly, (req, res) => {
+  const ticket = db.prepare(`
+    SELECT st.*, u.login, u.email, u.name
+    FROM support_tickets st
+    JOIN users u ON u.id = st.user_id
+    WHERE st.id = ?
+  `).get(req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Тикет не найден' });
+
+  const messages = db.prepare(`
+    SELECT sm.*, u.name, u.login
+    FROM support_messages sm
+    LEFT JOIN users u ON u.id = sm.user_id
+    WHERE sm.ticket_id = ?
+    ORDER BY datetime(sm.created_at) ASC
+  `).all(req.params.id);
+
+  res.json({ ticket, messages });
+});
+
+app.post('/api/admin/support/tickets/:id/messages', auth, adminOnly, (req, res) => {
+  uploadSupportAttachment(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(req.params.id);
+    if (!ticket) return res.status(404).json({ error: 'Тикет не найден' });
+
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    if (!message) return res.status(400).json({ error: 'Введите сообщение' });
+    const attachmentUrl = req.file ? `/uploads/support/${req.file.filename}` : '';
+
+    db.prepare(`
+      INSERT INTO support_messages (ticket_id, user_id, author_role, message, attachment_url)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.params.id, req.user.id, req.user.role, message, attachmentUrl);
+    db.prepare('UPDATE support_tickets SET updated_at = CURRENT_TIMESTAMP, status = ? WHERE id = ?').run('open', req.params.id);
+    res.json({ success: true });
+  });
+});
+
+app.put('/api/admin/support/tickets/:id/close', auth, adminOnly, (req, res) => {
+  const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Тикет не найден' });
+  db.prepare('UPDATE support_tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('closed', req.params.id);
   res.json({ success: true });
 });
 
