@@ -1,6 +1,7 @@
 import { BarChart3, ChevronDown, CircleHelp, Home, Link2, Menu, MessageSquare, Plus, User2 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import siteLogo from '../assets/site-logo.png';
 
 const NAV_ITEMS = [
   { label: 'Главная страница', icon: Home, to: '/dashboard' },
