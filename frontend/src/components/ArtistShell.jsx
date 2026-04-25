@@ -1,4 +1,5 @@
 import { BarChart3, ChevronDown, CircleHelp, Headphones, Home, Link2, Menu, Plus, User2 } from 'lucide-react';
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import siteLogo from '../assets/site-logo.png';
 
@@ -14,17 +15,33 @@ const NAV_ITEMS = [
 export default function ArtistShell({ user, avatarPreview, avatarFallback, menuOpen, setMenuOpen, logout, setSettingsOpen, actionSlot, children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 hidden h-screen w-20 border-r border-zinc-800/60 bg-[#0f0f0f] md:block">
-          <div className="flex h-20 items-center justify-center border-b border-zinc-800/60">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300">
+        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-zinc-800/60 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+          <div className={`flex h-20 items-center border-b border-zinc-800/60 ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
+            {sidebarOpen ? (
+              <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
+                  <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-white">CDCULT</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Distribution</p>
+                </div>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              className={`flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
+            >
               <Menu size={16} />
-            </div>
+            </button>
           </div>
-          <div className="flex flex-col items-center gap-3 p-3">
+          <div className="flex flex-col gap-3 p-3">
             {NAV_ITEMS.map(({ label, icon: Icon, to }) => {
               const isActive = location.pathname === to;
               return (
@@ -32,13 +49,14 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
                   key={to}
                   to={to}
                   title={label}
-                  className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition ${
-                    isActive
-                      ? 'border-white bg-white text-black'
-                      : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'
+                  className={`flex items-center rounded-2xl border transition ${
+                    sidebarOpen
+                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                      : `h-12 w-12 justify-center self-center ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
                   }`}
                 >
                   <Icon size={18} />
+                  {sidebarOpen ? <span>{label}</span> : null}
                 </NavLink>
               );
             })}

@@ -565,21 +565,18 @@ export default function ReleaseFormPage() {
   };
 
   return (
-    <ArtistShell
+        <ArtistShell
       user={user}
       avatarPreview={user?.avatar || ''}
       avatarFallback={avatarFallback}
       menuOpen={menuOpen}
       setMenuOpen={setMenuOpen}
       logout={logout}
-    >
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
-        <div className="relative mt-6 flex flex-col items-center text-center">
+      >
+        <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
+        <div className="mt-6 flex flex-col items-center text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
           <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
-          <button type="button" onClick={() => nav('/dashboard')} className="secondary-button absolute right-0 top-1 px-3 py-3">
-            <X size={16} />
-          </button>
         </div>
 
         <div className="mt-8 flex w-full items-center justify-center">
@@ -700,7 +697,7 @@ export default function ReleaseFormPage() {
                   </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-1 min-h-[180px] flex-col justify-between text-left">
-                      <div className="mb-3 flex items-center justify-start gap-2 text-zinc-300">
+                      <div className="mb-1 flex items-center justify-start gap-2 text-zinc-300">
                         <Upload size={16} />
                         Выберите или перетащите изображение
                       </div>
@@ -929,7 +926,7 @@ export default function ReleaseFormPage() {
             )}
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/60 pt-5">
-              <button type="button" onClick={saveDraft} className="text-sm font-semibold text-red-400 transition hover:text-red-300">
+              <button type="button" onClick={saveDraft} className="secondary-button border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20">
                 Черновик
               </button>
               {step < 4 ? (
