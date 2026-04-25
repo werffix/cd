@@ -1,7 +1,6 @@
-import { BarChart3, ChevronDown, CircleHelp, Headphones, Home, Link2, Menu, Plus, User2 } from 'lucide-react';
+import { BarChart3, ChevronDown, CircleHelp, Home, Link2, Menu, MessageSquare, Plus, User2 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import siteLogo from '../assets/site-logo.png';
 
 const NAV_ITEMS = [
   { label: 'Главная страница', icon: Home, to: '/dashboard' },
@@ -9,7 +8,7 @@ const NAV_ITEMS = [
   { label: 'Аналитика', icon: BarChart3, to: '/dashboard/analytics' },
   { label: 'Смарт-Линк', icon: Link2, to: '/dashboard/smart-link' },
   { label: 'FAQ', icon: CircleHelp, to: '/dashboard/faq' },
-  { label: 'Поддержка', icon: Headphones, to: '/dashboard/support' },
+  { label: 'Поддержка', icon: MessageSquare, to: '/dashboard/support' },
 ];
 
 export default function ArtistShell({ user, avatarPreview, avatarFallback, menuOpen, setMenuOpen, logout, setSettingsOpen, actionSlot, children }) {
@@ -20,23 +19,17 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-zinc-800/60 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-          <div className={`flex h-20 items-center border-b border-zinc-800/60 ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+          <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
-              <button type="button" onClick={() => navigate('/dashboard')} className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
-                  <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold tracking-wide text-white">CDCULT</p>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Distribution</p>
-                </div>
+              <button type="button" onClick={() => navigate('/dashboard')} className="text-sm font-bold tracking-wide text-white">
+                Меню
               </button>
             ) : null}
             <button
               type="button"
               onClick={() => setSidebarOpen((prev) => !prev)}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
+              className={`flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
             >
               <Menu size={16} />
             </button>
@@ -51,8 +44,8 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
                   title={label}
                   className={`flex items-center rounded-2xl border transition ${
                     sidebarOpen
-                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
-                      : `h-12 w-12 justify-center self-center ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
+                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                      : `h-12 w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
                   }`}
                 >
                   <Icon size={18} />

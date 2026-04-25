@@ -185,6 +185,24 @@ export default function ReleaseDetailsModal({
     }
   };
 
+  const downloadAsset = async (url, filename) => {
+    if (!url) return;
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename || url.split('/').pop() || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
@@ -202,9 +220,9 @@ export default function ReleaseDetailsModal({
         <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">
           <div className="flex flex-col gap-8 md:flex-row">
             <aside className="w-full space-y-4 md:w-1/3">
-              <a href={release.cover} download className="block overflow-hidden rounded-xl border border-zinc-800 shadow-lg">
+              <button type="button" onClick={() => downloadAsset(release.cover, `${release.title || 'cover'}.jpg`)} className="block w-full overflow-hidden rounded-xl border border-zinc-800 shadow-lg">
                 <img src={release.cover} alt={release.title} className="aspect-square w-full object-cover" />
-              </a>
+              </button>
 
               <span className={`inline-flex w-full items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                 {statusMeta.label}
@@ -294,9 +312,9 @@ export default function ReleaseDetailsModal({
                       </button>
                     ) : null}
                     <div className="border-t border-zinc-800/60 pt-2">
-                      <a href={release.cover} download className="block w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60">
+                      <button type="button" onClick={() => downloadAsset(release.cover, `${release.title || 'cover'}.jpg`)} className="block w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60">
                         Скачать обложку
-                      </a>
+                      </button>
                       {release.metadata?.demo ? (
                         <a href={release.metadata.demo} target="_blank" rel="noreferrer" className="block w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60">
                           Открыть демо / договор
@@ -362,14 +380,16 @@ export default function ReleaseDetailsModal({
                           </div>
                           <div className="flex items-center gap-2 text-zinc-500">
                             {currentTrack.audioUrl ? (
-                              <a
-                                href={currentTrack.audioUrl}
-                                download={currentTrack.originalFilename || true}
-                                onClick={(e) => e.stopPropagation()}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadAsset(currentTrack.audioUrl, currentTrack.originalFilename || `${currentTrack.title}.wav`);
+                                }}
                                 className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
                               >
                                 <Download size={16} />
-                              </a>
+                              </button>
                             ) : null}
                             {isActive ? <ChevronDown size={18} className="text-zinc-400" /> : <ChevronRight size={18} className="text-zinc-500" />}
                           </div>

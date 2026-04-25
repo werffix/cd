@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, BadgeCheck, CheckCheck, ChevronDown, Headphones, KeyRound, LayoutGrid, Menu, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, KeyRound, LayoutGrid, Menu, MessageSquare, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease } from '../lib/releases';
-import siteLogo from '../assets/site-logo.png';
 import { useAuth } from '../AuthContext';
 
 const getArtistLabel = (release) =>
@@ -20,7 +19,7 @@ const ADMIN_NAV_ITEMS = [
   { label: 'Действия', icon: LayoutGrid, key: 'actions' },
   { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
   { label: 'Пользователи', icon: Users, key: 'users' },
-  { label: 'Поддержка', icon: Headphones, key: 'support' },
+  { label: 'Поддержка', icon: MessageSquare, key: 'support' },
   { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
 ];
 
@@ -397,23 +396,15 @@ export default function AdminPanel() {
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-zinc-800/60 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-          <div className={`flex h-20 items-center border-b border-zinc-800/60 ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+          <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
-                  <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold tracking-wide text-white">CDCULT</p>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Admin</p>
-                </div>
-              </div>
+              <div className="text-sm font-bold tracking-wide text-white">Меню</div>
             ) : null}
             <button
               type="button"
               onClick={() => setSidebarOpen((prev) => !prev)}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
+              className={`flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
             >
               <Menu size={16} />
             </button>
@@ -430,8 +421,8 @@ export default function AdminPanel() {
                   onClick={() => setActiveSection(key)}
                   className={`relative flex items-center rounded-2xl border transition ${
                     sidebarOpen
-                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
-                      : `h-12 w-12 justify-center self-center ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
+                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                      : `h-12 w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
                   }`}
                 >
                   <Icon size={18} />
@@ -451,9 +442,6 @@ export default function AdminPanel() {
           <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
             <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
                 <div className="flex items-center gap-3 pl-2">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
-                    <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
-                  </div>
                   <div className="flex items-center gap-2">
                     <span className="text-base font-bold tracking-wide text-white">Панель модерации</span>
                   </div>

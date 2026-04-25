@@ -697,11 +697,11 @@ export default function ReleaseFormPage() {
                   </div>
                   <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-1 min-h-[180px] flex-col justify-between text-left">
-                      <div className="mb-1 flex items-center justify-start gap-2 text-zinc-300">
-                        <Upload size={16} />
-                        Выберите или перетащите изображение
-                      </div>
-                      <div className="mt-auto flex flex-wrap items-center gap-4">
+                      <div className="mb-2 flex flex-wrap items-center gap-4 text-zinc-300">
+                        <span className="inline-flex items-center gap-2">
+                          <Upload size={16} />
+                          Выберите или перетащите изображение
+                        </span>
                         <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200">
                           Выберите файл
                           <input
@@ -715,6 +715,8 @@ export default function ReleaseFormPage() {
                         <span className="text-sm text-zinc-500">
                           {formData.cover_image?.name || 'Файл не выбран'}
                         </span>
+                      </div>
+                      <div className="mt-auto">
                         {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                       </div>
                     </div>
@@ -926,7 +928,7 @@ export default function ReleaseFormPage() {
             )}
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/60 pt-5">
-              <button type="button" onClick={saveDraft} className="secondary-button border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20">
+              <button type="button" onClick={saveDraft} className="secondary-button border-transparent bg-white/12 text-white hover:bg-white/18">
                 Черновик
               </button>
               {step < 4 ? (

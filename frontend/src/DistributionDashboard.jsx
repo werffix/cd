@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, User2 } from 'lucide-react';
+import { ChevronDown, Plus, User2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from './apiUpload';
 import ReleaseDetailsModal from './components/ReleaseDetailsModal';
@@ -16,6 +16,7 @@ export default function DistributionDashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   const [profile, setProfile] = useState({
     name: user?.name || '',
@@ -158,7 +159,7 @@ export default function DistributionDashboard() {
               className="field-input w-full"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
             {STATUS_FILTERS.map((item) => (
               <button
                 key={item.key}
@@ -171,6 +172,35 @@ export default function DistributionDashboard() {
                 {item.label}
               </button>
             ))}
+          </div>
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+              className="secondary-button"
+            >
+              Фильтры
+              <ChevronDown size={16} />
+            </button>
+            {filtersOpen ? (
+              <div className="absolute right-0 top-12 z-20 min-w-[220px] rounded-2xl bg-[#121212] p-2 shadow-2xl">
+                {STATUS_FILTERS.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(item.key);
+                      setFiltersOpen(false);
+                    }}
+                    className={`block w-full rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                      statusFilter === item.key ? 'bg-white text-black' : 'text-zinc-300 hover:bg-zinc-800/60'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
