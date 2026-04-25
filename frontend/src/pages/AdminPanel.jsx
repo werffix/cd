@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, BadgeCheck, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Headphones, KeyRound, LayoutGrid, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, Headphones, KeyRound, LayoutGrid, Menu, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
-import { ADMIN_FILTERS, STATUS_META, formatDate, parseRelease } from '../lib/releases';
+import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease } from '../lib/releases';
 import siteLogo from '../assets/site-logo.png';
 import { useAuth } from '../AuthContext';
 
@@ -15,6 +15,14 @@ const USER_STATUS_META = {
   rejected: { label: 'Отклонён', badge: 'border-amber-500/25 bg-amber-500/15 text-amber-100' },
   pending: { label: 'На рассмотрении', badge: 'border-blue-500/25 bg-blue-500/15 text-blue-100' },
 };
+
+const ADMIN_NAV_ITEMS = [
+  { label: 'Действия', icon: LayoutGrid, key: 'actions' },
+  { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
+  { label: 'Пользователи', icon: Users, key: 'users' },
+  { label: 'Поддержка', icon: Headphones, key: 'support' },
+  { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
+];
 
 export default function AdminPanel() {
   const { user, logout, updateUser } = useAuth();
@@ -336,6 +344,7 @@ export default function AdminPanel() {
   }, [query, registrationRequests]);
 
   const avatarFallback = useMemo(() => (!avatarPreview ? user?.name?.slice(0, 1)?.toUpperCase() : ''), [avatarPreview, user]);
+  const hasUnreadSupport = useMemo(() => supportTickets.some((ticket) => Number(ticket.admin_unread) > 0), [supportTickets]);
 
   const buildActionButtons = (release, fullWidth = false) => {
     if (!release) return null;
@@ -388,52 +397,65 @@ export default function AdminPanel() {
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <div className="flex min-h-screen">
-        <aside className={`border-r border-zinc-800/60 bg-[#0f0f0f] transition-all ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-          <div className="flex h-20 items-center justify-center border-b border-zinc-800/60">
+        <aside className={`sticky top-0 hidden h-screen shrink-0 border-r border-zinc-800/60 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+          <div className={`flex h-20 items-center border-b border-zinc-800/60 ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
+            {sidebarOpen ? (
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
+                  <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-white">CDCULT</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Admin</p>
+                </div>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => setSidebarOpen((prev) => !prev)}
-              className="secondary-button px-3 py-3"
+              className={`flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
             >
-              {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+              <Menu size={16} />
             </button>
           </div>
-          <div className="space-y-2 p-4">
-            {[
-              { label: 'Действия', icon: LayoutGrid, key: 'actions' },
-              { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
-              { label: 'Пользователи', icon: Users, key: 'users' },
-              { label: 'Поддержка', icon: Headphones, key: 'support' },
-              { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
-            ].map(({ label, icon: Icon, key }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setActiveSection(key || 'actions')}
-                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-sm font-semibold transition ${
-                  activeSection === (key || 'actions')
-                    ? 'border-white bg-white text-black'
-                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/50'
-                }`}
-              >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold ${activeSection === (key || 'actions') ? 'bg-black text-white' : 'bg-zinc-800 text-white'}`}>
-                  <Icon size={16} />
-                </span>
-                {sidebarOpen ? <span>{label}</span> : null}
-              </button>
-            ))}
+          <div className="flex flex-col gap-3 p-3">
+            {ADMIN_NAV_ITEMS.map(({ label, icon: Icon, key }) => {
+              const isActive = activeSection === key;
+              const unread = key === 'support' && hasUnreadSupport;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  title={label}
+                  onClick={() => setActiveSection(key)}
+                  className={`relative flex items-center rounded-2xl border transition ${
+                    sidebarOpen
+                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                      : `h-12 w-12 justify-center self-center ${isActive ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
+                  }`}
+                >
+                  <Icon size={18} />
+                  {sidebarOpen ? <span>{label}</span> : null}
+                  {unread ? (
+                    <span className={`rounded-full border border-blue-500 bg-blue-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${sidebarOpen ? 'ml-auto' : 'absolute -right-1 -top-1 px-1.5'}`}>
+                      Новое
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </aside>
 
-        <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-[1600px] space-y-6">
-            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-transparent">
+        <div className="flex-1 pb-24 md:pb-0">
+          <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
+                <div className="flex items-center gap-3 pl-2">
+                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                     <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
                   </div>
-                  <div>
-                    <h1 className="text-[28px] font-bold tracking-tight text-white">Панель модерации</h1>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold tracking-wide text-white">Панель модерации</span>
                   </div>
                 </div>
 
@@ -738,6 +760,11 @@ export default function AdminPanel() {
                         <span className={`rounded-full border px-3 py-1 text-xs ${ticket.status === 'closed' ? 'border-zinc-700 bg-zinc-900/50 text-zinc-400' : 'border-emerald-500/25 bg-emerald-500/15 text-emerald-100'}`}>
                           {ticket.status === 'closed' ? 'Закрыт' : 'Открыт'}
                         </span>
+                        {ticket.admin_unread ? (
+                          <span className="rounded-full border border-blue-500 bg-blue-500 px-3 py-1 text-xs text-white">
+                            Новое сообщение
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </button>
@@ -1103,7 +1130,7 @@ export default function AdminPanel() {
                 <div key={entry.id} className={`rounded-2xl border p-4 ${entry.author_role === 'admin' ? 'border-blue-500/20 bg-blue-500/10' : 'border-zinc-800/60 bg-zinc-900/40'}`}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">{entry.author_role === 'admin' ? 'Администратор' : (entry.name || entry.login || 'Артист')}</p>
-                    <p className="text-xs text-zinc-500">{formatDate(entry.created_at)}</p>
+                    <p className="text-xs text-zinc-500">{formatDateTime(entry.created_at)}</p>
                   </div>
                   <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">{entry.message}</p>
                   {entry.attachment_url ? (
@@ -1148,6 +1175,35 @@ export default function AdminPanel() {
           {adminMessage}
         </div>
       ) : null}
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/60 bg-[#0f0f0f]/95 px-2 py-2 backdrop-blur-xl md:hidden">
+        <div className="grid grid-cols-5 gap-2">
+          {ADMIN_NAV_ITEMS.map(({ label, icon: Icon, key }) => {
+            const isActive = activeSection === key;
+            const unread = key === 'support' && hasUnreadSupport;
+            return (
+              <button
+                key={key}
+                type="button"
+                title={label}
+                onClick={() => setActiveSection(key)}
+                className={`relative flex h-12 items-center justify-center rounded-2xl border transition ${
+                  isActive
+                    ? 'border-white bg-white text-black'
+                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                }`}
+              >
+                <Icon size={18} />
+                {unread ? (
+                  <span className="absolute -right-1 -top-1 rounded-full border border-blue-500 bg-blue-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                    New
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

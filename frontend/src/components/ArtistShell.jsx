@@ -1,4 +1,4 @@
-import { BarChart3, CircleHelp, Headphones, Home, Link2, Menu, MessageCircle, Plus, User2 } from 'lucide-react';
+import { BarChart3, ChevronDown, CircleHelp, Headphones, Home, Link2, Menu, Plus, User2 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import siteLogo from '../assets/site-logo.png';
 
@@ -18,7 +18,7 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
   return (
     <div className="app-shell min-h-screen bg-[#0a0a0a]">
       <div className="flex min-h-screen">
-        <aside className="w-20 border-r border-zinc-800/60 bg-[#0f0f0f]">
+        <aside className="sticky top-0 hidden h-screen w-20 border-r border-zinc-800/60 bg-[#0f0f0f] md:block">
           <div className="flex h-20 items-center justify-center border-b border-zinc-800/60">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-800/60 bg-zinc-900/40 text-zinc-300">
               <Menu size={16} />
@@ -46,8 +46,8 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
         </aside>
 
         <div className="flex-1">
-          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/90 px-6 backdrop-blur-xl sm:px-8">
-            <div className="flex items-center gap-5">
+          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/90 px-5 backdrop-blur-xl sm:px-7">
+            <div className="flex items-center gap-3 pl-2">
               <button type="button" onClick={() => navigate('/dashboard')} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                 <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
               </button>
@@ -72,6 +72,7 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
                     <User2 size={18} />
                   )}
                 </div>
+                <ChevronDown size={15} className="text-zinc-400" />
               </button>
 
               {menuOpen ? (
@@ -118,6 +119,27 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
           {children}
         </div>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/60 bg-[#0f0f0f]/95 px-2 py-2 backdrop-blur-xl md:hidden">
+        <div className="grid grid-cols-6 gap-2">
+          {NAV_ITEMS.map(({ label, icon: Icon, to }) => {
+            const isActive = location.pathname === to;
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                title={label}
+                className={`flex h-12 items-center justify-center rounded-2xl border transition ${
+                  isActive
+                    ? 'border-white bg-white text-black'
+                    : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                }`}
+              >
+                <Icon size={18} />
+              </NavLink>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

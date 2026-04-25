@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../apiUpload';
 import ArtistShell from '../components/ArtistShell';
 import { useAuth } from '../AuthContext';
-import { formatDate } from '../lib/releases';
+import { formatDate, formatDateTime } from '../lib/releases';
 
 const CATEGORIES = ['Модерация', 'UPC', 'Технический вопрос', 'Другое'];
 
@@ -61,6 +61,13 @@ export default function SupportPage() {
     fetchTickets();
   };
 
+  const closeTicket = async () => {
+    if (!selectedTicket) return;
+    await api.put(`/support/tickets/${selectedTicket.id}/close`);
+    openTicket(selectedTicket);
+    fetchTickets();
+  };
+
   return (
     <ArtistShell
       user={user}
@@ -96,6 +103,11 @@ export default function SupportPage() {
                   <span className={`rounded-full border px-3 py-1 text-xs ${ticket.status === 'closed' ? 'border-zinc-700 bg-zinc-900/50 text-zinc-400' : 'border-emerald-500/25 bg-emerald-500/15 text-emerald-100'}`}>
                     {ticket.status === 'closed' ? 'Закрыт' : 'Открыт'}
                   </span>
+                  {ticket.artist_unread ? (
+                    <span className="rounded-full border border-blue-500/25 bg-blue-500/15 px-3 py-1 text-xs text-blue-100">
+                      Новое сообщение
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </button>
@@ -157,7 +169,7 @@ export default function SupportPage() {
                 <div key={entry.id} className={`rounded-2xl border p-4 ${entry.author_role === 'admin' ? 'border-blue-500/20 bg-blue-500/10' : 'border-zinc-800/60 bg-zinc-900/40'}`}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-white">{entry.author_role === 'admin' ? 'Поддержка CDCULT' : (entry.name || entry.login || 'Вы')}</p>
-                    <p className="text-xs text-zinc-500">{formatDate(entry.created_at)}</p>
+                    <p className="text-xs text-zinc-500">{formatDateTime(entry.created_at)}</p>
                   </div>
                   <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">{entry.message}</p>
                   {entry.attachment_url ? (
@@ -173,10 +185,15 @@ export default function SupportPage() {
               <div className="mt-5 space-y-4 border-t border-zinc-800 pt-4">
                 <textarea className="field-textarea" rows={4} value={reply.message} onChange={(e) => setReply((prev) => ({ ...prev, message: e.target.value }))} placeholder="Ответить в тикет..." />
                 <input type="file" accept=".png,.jpg,.jpeg,.pdf,.doc,.docx" onChange={(e) => setReply((prev) => ({ ...prev, attachment: e.target.files?.[0] || null }))} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
-                <button type="button" onClick={sendReply} className="primary-button">
-                  <Send size={16} />
-                  Отправить ответ
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" onClick={sendReply} className="primary-button">
+                    <Send size={16} />
+                    Отправить ответ
+                  </button>
+                  <button type="button" onClick={closeTicket} className="secondary-button">
+                    Закрыть тикет
+                  </button>
+                </div>
               </div>
             ) : null}
           </div>

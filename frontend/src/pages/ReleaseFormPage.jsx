@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   CircleHelp,
   Loader2,
@@ -536,6 +537,33 @@ export default function ReleaseFormPage() {
     }
   };
 
+  const saveDraft = async () => {
+    try {
+      const data = new FormData();
+      data.append('title', formData.release_title || 'Черновик');
+      data.append('subtitle', formData.subtitle);
+      data.append('type', formData.release_type);
+      data.append('artists', formData.artists);
+      data.append('genre', buildGenreLabel(formData.main_genre, formData.sub_genre));
+      data.append('status', 'draft');
+      data.append('archive_url', '');
+      data.append('metadata', JSON.stringify(buildMetadata()));
+      if (formData.cover_image) data.append('cover', formData.cover_image);
+
+      if (draftReleaseId) {
+        await updateRelease(draftReleaseId, data);
+      } else {
+        const res = await createReleaseWithCover(data);
+        setDraftReleaseId(res.data.id);
+      }
+      setSubmitMessage('Черновик сохранён');
+    } catch (error) {
+      setSubmitMessage(`Не удалось сохранить черновик: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setTimeout(() => setSubmitMessage(''), 1800);
+    }
+  };
+
   return (
     <ArtistShell
       user={user}
@@ -634,19 +662,29 @@ export default function ReleaseFormPage() {
 
                 <Field label="UPC (опционально)" name="upc" value={formData.upc} onChange={handleChange} />
 
-                <div className="space-y-3">
+                <label className="block space-y-2">
                   <span className="field-label">Дата релиза *</span>
-                  <Field name="release_date" type="date" value={formData.release_date} onChange={handleChange} error={errors.release_date} />
-                </div>
+                  <div className="date-shell">
+                    <input name="release_date" type="date" value={formData.release_date} onChange={handleChange} className="field-input date-field pr-14" />
+                    <CalendarDays size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  </div>
+                  {errors.release_date ? <span className="text-xs text-red-300">{errors.release_date}</span> : null}
+                </label>
 
                 {formData.upc ? (
-                  <Field
-                    label="Оригинальная дата релиза"
-                    name="original_release_date"
-                    type="date"
-                    value={formData.original_release_date}
-                    onChange={handleChange}
-                  />
+                  <label className="block space-y-2">
+                    <span className="field-label">Оригинальная дата релиза</span>
+                    <div className="date-shell">
+                      <input
+                        name="original_release_date"
+                        type="date"
+                        value={formData.original_release_date}
+                        onChange={handleChange}
+                        className="field-input date-field pr-14"
+                      />
+                      <CalendarDays size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    </div>
+                  </label>
                 ) : null}
 
                 <div className="space-y-4">
@@ -666,8 +704,20 @@ export default function ReleaseFormPage() {
                         <Upload size={16} />
                         Выберите или перетащите изображение
                       </div>
-                      <div>
-                        <input name="cover_image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleChange} className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-4 file:py-2.5 file:font-semibold file:text-black" />
+                      <div className="mt-auto flex flex-wrap items-center gap-4">
+                        <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200">
+                          Выберите файл
+                          <input
+                            name="cover_image"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleChange}
+                            className="sr-only"
+                          />
+                        </label>
+                        <span className="text-sm text-zinc-500">
+                          {formData.cover_image?.name || 'Файл не выбран'}
+                        </span>
                         {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                       </div>
                     </div>
@@ -842,7 +892,6 @@ export default function ReleaseFormPage() {
                       </div>
                     </div>
                     <div className="w-full max-w-[180px] shrink-0">
-                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-zinc-500">Обложка</p>
                       {coverPreview ? (
                         <img src={coverPreview} alt="Cover preview" className="mt-4 aspect-square h-[180px] w-[180px] rounded-lg object-cover" />
                       ) : (
@@ -879,7 +928,10 @@ export default function ReleaseFormPage() {
               </div>
             )}
 
-            <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-zinc-800/60 pt-5">
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/60 pt-5">
+              <button type="button" onClick={saveDraft} className="text-sm font-semibold text-red-400 transition hover:text-red-300">
+                Черновик
+              </button>
               {step < 4 ? (
                 <button type="button" onClick={nextStep} className="primary-button">
                   Далее
