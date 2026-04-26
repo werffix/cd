@@ -28,6 +28,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'cdcult_super_secret_2026';
 const PORT = process.env.PORT || 3000;
+const DMB_BASE_URL = process.env.DMB_BASE_URL || 'https://dmb.sundesiremedia.com';
+const DMB_LOGIN = process.env.DMB_LOGIN || 'CDCULT_RECORDS';
+const DMB_PASSWORD = process.env.DMB_PASSWORD || 'Durka040!';
 
 ['uploads', 'uploads/covers', 'uploads/tracks', 'uploads/support'].forEach((dir) => {
   fs.mkdirSync(path.join(__dirname, dir), { recursive: true });
@@ -156,6 +159,124 @@ const serializeSupportTicket = (ticket) => ({
   ...ticket,
   attachment_url: ticket.attachment_url || '',
 });
+
+const collectCookies = (response, existingCookie = '') => {
+  const nextCookies = new Map();
+  existingCookie
+    .split(';')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .forEach((pair) => {
+      const [name, ...rest] = pair.split('=');
+      if (name && rest.length) nextCookies.set(name, rest.join('='));
+    });
+
+  const setCookieHeaders = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : (response.headers.get('set-cookie') ? [response.headers.get('set-cookie')] : []);
+
+  setCookieHeaders.forEach((cookie) => {
+    const [pair] = cookie.split(';');
+    const [name, ...rest] = pair.split('=');
+    if (name && rest.length) nextCookies.set(name.trim(), rest.join('=').trim());
+  });
+
+  return Array.from(nextCookies.entries()).map(([name, value]) => `${name}=${value}`).join('; ');
+};
+
+const fetchWithCookies = async (url, options = {}, cookie = '') => {
+  const headers = new Headers(options.headers || {});
+  if (cookie) headers.set('cookie', cookie);
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    redirect: options.redirect || 'manual',
+  });
+  const nextCookie = collectCookies(response, cookie);
+  return { response, cookie: nextCookie };
+};
+
+const extractInputNameByPlaceholder = (html, placeholder) => {
+  const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = html.match(new RegExp(`<input[^>]*name="([^"]+)"[^>]*placeholder="${escaped}"[^>]*>|<input[^>]*placeholder="${escaped}"[^>]*name="([^"]+)"[^>]*>`, 'i'));
+  return match?.[1] || match?.[2] || null;
+};
+
+const extractFormAction = (html, marker) => {
+  const index = html.indexOf(marker);
+  if (index === -1) return null;
+  const before = html.lastIndexOf('<form', index);
+  const after = html.indexOf('</form>', index);
+  if (before === -1 || after === -1) return null;
+  const formChunk = html.slice(before, after);
+  const actionMatch = formChunk.match(/action="([^"]+)"/i);
+  return actionMatch?.[1] || null;
+};
+
+const toAbsoluteUrl = (value) => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  return new URL(value, DMB_BASE_URL).toString();
+};
+
+const fetchUpcFromDmb = async ({ artist, title }) => {
+  const normalizedArtist = (artist || '').split(',')[0].trim();
+  const normalizedTitle = (title || '').trim();
+  if (!normalizedArtist || !normalizedTitle) return null;
+
+  let cookie = '';
+
+  const loginPage = await fetchWithCookies(DMB_BASE_URL, { method: 'GET' }, cookie);
+  cookie = loginPage.cookie;
+  const loginHtml = await loginPage.response.text();
+  const loginAction = toAbsoluteUrl(extractFormAction(loginHtml, 'placeholder="Ваш Логин"') || '/');
+  const loginField = extractInputNameByPlaceholder(loginHtml, 'Ваш Логин') || 'login';
+  const passwordField = extractInputNameByPlaceholder(loginHtml, 'Ваш Пароль') || 'password';
+
+  const loginBody = new URLSearchParams();
+  loginBody.set(loginField, DMB_LOGIN);
+  loginBody.set(passwordField, DMB_PASSWORD);
+
+  const loginResult = await fetchWithCookies(loginAction, {
+    method: 'POST',
+    body: loginBody,
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+  }, cookie);
+  cookie = loginResult.cookie;
+
+  const listUrl = `${DMB_BASE_URL}/ru/albums/list/`;
+  const listPage = await fetchWithCookies(listUrl, { method: 'GET' }, cookie);
+  cookie = listPage.cookie;
+  const listHtml = await listPage.response.text();
+  const listAction = toAbsoluteUrl(extractFormAction(listHtml, 'placeholder="Название"') || listUrl);
+  const titleField = extractInputNameByPlaceholder(listHtml, 'Название') || 'title';
+  const artistField = extractInputNameByPlaceholder(listHtml, 'Артист') || 'artist';
+
+  const searchBody = new URLSearchParams();
+  searchBody.set(titleField, normalizedTitle);
+  searchBody.set(artistField, normalizedArtist);
+
+  const searchResult = await fetchWithCookies(listAction, {
+    method: 'POST',
+    body: searchBody,
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+  }, cookie);
+  cookie = searchResult.cookie;
+  const searchHtml = await searchResult.response.text();
+
+  const releaseLinkMatch = searchHtml.match(/<a[^>]+href="([^"]+)"[^>]*>\s*Open release for view\s*<\/a>/i);
+  const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1]);
+  if (!releaseUrl) return null;
+
+  const detailResult = await fetchWithCookies(releaseUrl, { method: 'GET' }, cookie);
+  const detailHtml = await detailResult.response.text();
+  const upcMatch = detailHtml.match(/readonly-input-value barcode-readonly-value[^>]*>\s*([^<\s][^<]*)\s*</i);
+  return upcMatch?.[1]?.trim() || null;
+};
 
 // Auth Routes
 app.post('/api/auth/register', async (req, res) => {
@@ -716,18 +837,28 @@ app.post('/api/releases/:id/request-upc', auth, (req, res) => {
     return res.status(400).json({ error: 'UPC уже указан для этого релиза' });
   }
 
-  const existing = db.prepare('SELECT id FROM upc_requests WHERE release_id = ? AND status = ?').get(release.id, 'pending');
-  if (existing) {
-    return res.status(400).json({ error: 'Запрос UPC уже отправлен' });
-  }
+  fetchUpcFromDmb({
+    artist: release.artists || '',
+    title: release.title || '',
+  })
+    .then((upc) => {
+      if (!upc) {
+        return res.status(404).json({ error: 'Попробуйте позже, UPC еще не готов' });
+      }
 
-  metadata.upc_requested = true;
-  db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(metadata), release.id);
+      const nextMetadata = {
+        ...metadata,
+        upc,
+        upc_requested: false,
+      };
 
-  db.prepare('INSERT INTO upc_requests (release_id, user_id, artist_name, release_title) VALUES (?, ?, ?, ?)')
-    .run(release.id, req.user.id, release.artists || '', release.title || '');
-
-  res.json({ success: true });
+      db.prepare('UPDATE releases SET metadata = ? WHERE id = ?').run(JSON.stringify(nextMetadata), release.id);
+      return res.json({ success: true, upc });
+    })
+    .catch((error) => {
+      console.error('DMB UPC request failed', error);
+      return res.status(502).json({ error: 'Не удалось получить UPC автоматически. Попробуйте позже.' });
+    });
 });
 
 app.get('/api/admin/upc-requests', auth, adminOnly, (req, res) => {
