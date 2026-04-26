@@ -236,7 +236,7 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const loginHtml = await loginPage.response.text();
   const loginAction = toAbsoluteUrl(extractFormAction(loginHtml, 'placeholder="Ваш Логин"') || '/');
   const loginField = extractInputNameByPlaceholder(loginHtml, 'Ваш Логин') || 'login';
-  const passwordField = extractInputNameByPlaceholder(loginHtml, 'Ваш Пароль') || 'password';
+  const passwordField = extractInputNameByPlaceholder(loginHtml, 'Ваш Пароль') || 'pass';
 
   console.log('[DMB][UPC] login page parsed', {
     status: loginPage.response.status,
@@ -248,6 +248,7 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   });
 
   const loginBody = new URLSearchParams();
+  loginBody.set('action', 'login');
   loginBody.set(loginField, DMB_LOGIN);
   loginBody.set(passwordField, DMB_PASSWORD);
 
@@ -273,35 +274,30 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const listPage = await fetchWithCookies(listUrl, { method: 'GET' }, cookie);
   cookie = listPage.cookie;
   const listHtml = await listPage.response.text();
-  const listAction = toAbsoluteUrl(extractFormAction(listHtml, 'placeholder="Название"') || listUrl);
-  const titleField = extractInputNameByPlaceholder(listHtml, 'Название') || 'title';
-  const artistField = extractInputNameByPlaceholder(listHtml, 'Артист') || 'artist';
+  const titleField = extractInputNameByPlaceholder(listHtml, 'Название') || 'f_album_like';
+  const artistField = extractInputNameByPlaceholder(listHtml, 'Артист') || 'f_artist_like';
 
   console.log('[DMB][UPC] list page parsed', {
     status: listPage.response.status,
-    listAction,
     titleField,
     artistField,
     hasTitlePlaceholder: listHtml.includes('placeholder="Название"'),
     hasArtistPlaceholder: listHtml.includes('placeholder="Артист"'),
   });
 
-  const searchBody = new URLSearchParams();
-  searchBody.set(titleField, normalizedTitle);
-  searchBody.set(artistField, normalizedArtist);
+  const searchUrl = new URL(listUrl);
+  searchUrl.searchParams.set(titleField, normalizedTitle);
+  searchUrl.searchParams.set(artistField, normalizedArtist);
 
-  const searchResult = await fetchWithCookies(listAction, {
-    method: 'POST',
-    body: searchBody,
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded',
-    },
+  const searchResult = await fetchWithCookies(searchUrl.toString(), {
+    method: 'GET',
   }, cookie);
   cookie = searchResult.cookie;
   const searchHtml = await searchResult.response.text();
 
   console.log('[DMB][UPC] search result', {
     status: searchResult.response.status,
+    searchUrl: searchUrl.toString(),
     hasOpenReleaseLink: /Open release for view/i.test(searchHtml),
     hasBarcodeBlock: /barcode-readonly-value/i.test(searchHtml),
     snippet: searchHtml.replace(/\s+/g, ' ').slice(0, 300),
