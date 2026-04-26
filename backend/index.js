@@ -98,6 +98,13 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+const staffOnly = (req, res, next) => {
+  if (!['admin', 'moderator'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Только для сотрудников' });
+  }
+  next();
+};
+
 const buildAuthBlockedPayload = (user) => {
   if (user.account_status === 'pending') {
     return {
@@ -159,6 +166,64 @@ const serializeSupportTicket = (ticket) => ({
   ...ticket,
   attachment_url: ticket.attachment_url || '',
 });
+
+const FILE_MANAGER_FOLDERS = {
+  covers: {
+    label: 'Обложки',
+    fsPath: path.join(__dirname, 'uploads', 'covers'),
+    urlPrefix: '/uploads/covers',
+  },
+  tracks: {
+    label: 'Файлы треков',
+    fsPath: path.join(__dirname, 'uploads', 'tracks'),
+    urlPrefix: '/uploads/tracks',
+  },
+  support: {
+    label: 'Вложения поддержки',
+    fsPath: path.join(__dirname, 'uploads', 'support'),
+    urlPrefix: '/uploads/support',
+  },
+  misc: {
+    label: 'Прочие файлы',
+    fsPath: path.join(__dirname, 'uploads'),
+    urlPrefix: '/uploads',
+  },
+};
+
+const getManagedFolderConfig = (folderKey) => FILE_MANAGER_FOLDERS[folderKey] || null;
+
+const listManagedFolderFiles = (folderKey) => {
+  const folder = getManagedFolderConfig(folderKey);
+  if (!folder || !fs.existsSync(folder.fsPath)) return [];
+
+  return fs.readdirSync(folder.fsPath)
+    .filter((name) => {
+      const absolutePath = path.join(folder.fsPath, name);
+      if (!fs.statSync(absolutePath).isFile()) return false;
+      if (folderKey !== 'misc') return true;
+      return !['covers', 'tracks', 'support'].includes(name);
+    })
+    .map((name) => {
+      const absolutePath = path.join(folder.fsPath, name);
+      const stats = fs.statSync(absolutePath);
+      return {
+        name,
+        size: stats.size,
+        modified_at: stats.mtime.toISOString(),
+        url: `${folder.urlPrefix}/${encodeURIComponent(name)}`,
+      };
+    })
+    .sort((a, b) => new Date(b.modified_at).getTime() - new Date(a.modified_at).getTime());
+};
+
+const resolveManagedFilePath = (folderKey, filename) => {
+  const folder = getManagedFolderConfig(folderKey);
+  if (!folder || !filename || filename.includes('/') || filename.includes('\\')) return null;
+  const absolutePath = path.join(folder.fsPath, filename);
+  if (!absolutePath.startsWith(folder.fsPath)) return null;
+  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) return null;
+  return absolutePath;
+};
 
 const collectCookies = (response, existingCookie = '') => {
   const nextCookies = new Map();
@@ -579,7 +644,7 @@ app.delete('/api/releases/:id', auth, (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
+app.get('/api/admin/releases', auth, staffOnly, (req, res) => {
   const releases = db.prepare(`
     SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
     FROM releases r
@@ -591,7 +656,18 @@ app.get('/api/admin/releases', auth, adminOnly, (req, res) => {
   res.json(releases);
 });
 
-app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
+app.get('/api/admin/my-releases', auth, staffOnly, (req, res) => {
+  const releases = db.prepare(`
+    SELECT r.id, r.user_id, r.title, r.subtitle, r.artists, r.status, r.cover_url, r.created_at, r.metadata, r.release_type, l.label_name
+    FROM releases r
+    LEFT JOIN labels l ON l.user_id = r.user_id
+    WHERE r.user_id = ?
+    ORDER BY r.created_at DESC
+  `).all(req.user.id);
+  res.json(releases);
+});
+
+app.put('/api/admin/releases/:id', auth, staffOnly, (req, res) => {
   const { status, moderator_comment } = req.body;
   const release = db.prepare('SELECT metadata FROM releases WHERE id = ?').get(req.params.id);
   let meta = {};
@@ -607,7 +683,12 @@ app.put('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/admin/releases/:id', auth, adminOnly, (req, res) => {
+app.delete('/api/admin/releases/:id', auth, staffOnly, (req, res) => {
+  const release = db.prepare('SELECT user_id FROM releases WHERE id = ?').get(req.params.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  if (req.user.role !== 'admin' && Number(release.user_id) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
   db.prepare('DELETE FROM releases WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });
@@ -666,6 +747,22 @@ app.put('/api/admin/users/:id/promote', auth, adminOnly, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
   db.prepare('UPDATE users SET role = ?, account_status = ? WHERE id = ?').run('admin', 'active', req.params.id);
+  res.json({ success: true });
+});
+
+app.put('/api/admin/users/:id/set-role', auth, adminOnly, (req, res) => {
+  const nextRole = typeof req.body.role === 'string' ? req.body.role.trim() : '';
+  if (!['artist', 'moderator', 'admin'].includes(nextRole)) {
+    return res.status(400).json({ error: 'Недопустимая роль' });
+  }
+  if (Number(req.params.id) === req.user.id && nextRole !== 'admin') {
+    return res.status(400).json({ error: 'Нельзя снять админку самому себе' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+  db.prepare('UPDATE users SET role = ?, account_status = ? WHERE id = ?').run(nextRole, 'active', req.params.id);
   res.json({ success: true });
 });
 
@@ -830,7 +927,7 @@ app.put('/api/support/tickets/:id/close', auth, (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/admin/support/tickets', auth, adminOnly, (req, res) => {
+app.get('/api/admin/support/tickets', auth, staffOnly, (req, res) => {
   const tickets = db.prepare(`
     SELECT st.*, u.login, u.email, u.name, COUNT(sm.id) AS messages_count
     FROM support_tickets st
@@ -844,7 +941,7 @@ app.get('/api/admin/support/tickets', auth, adminOnly, (req, res) => {
   res.json(tickets);
 });
 
-app.get('/api/admin/support/tickets/:id', auth, adminOnly, (req, res) => {
+app.get('/api/admin/support/tickets/:id', auth, staffOnly, (req, res) => {
   const ticket = db.prepare(`
     SELECT st.*, u.login, u.email, u.name
     FROM support_tickets st
@@ -865,7 +962,7 @@ app.get('/api/admin/support/tickets/:id', auth, adminOnly, (req, res) => {
   res.json({ ticket: { ...ticket, admin_unread: 0 }, messages });
 });
 
-app.post('/api/admin/support/tickets/:id/messages', auth, adminOnly, (req, res) => {
+app.post('/api/admin/support/tickets/:id/messages', auth, staffOnly, (req, res) => {
   uploadSupportAttachment(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(req.params.id);
@@ -884,7 +981,7 @@ app.post('/api/admin/support/tickets/:id/messages', auth, adminOnly, (req, res) 
   });
 });
 
-app.put('/api/admin/support/tickets/:id/close', auth, adminOnly, (req, res) => {
+app.put('/api/admin/support/tickets/:id/close', auth, staffOnly, (req, res) => {
   const ticket = db.prepare('SELECT * FROM support_tickets WHERE id = ?').get(req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Тикет не найден' });
   db.prepare('UPDATE support_tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('closed', req.params.id);
@@ -894,6 +991,11 @@ app.put('/api/admin/support/tickets/:id/close', auth, adminOnly, (req, res) => {
 app.post('/api/releases/:id/request-upc', auth, (req, res) => {
   const release = db.prepare('SELECT id, user_id, title, artists, metadata FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+
+  const releaseStatusRow = db.prepare('SELECT status FROM releases WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (releaseStatusRow?.status !== 'shipped') {
+    return res.status(400).json({ error: 'Запрос доступен только после доставки релиза на площадки.' });
+  }
 
   let metadata = {};
   try {
@@ -967,6 +1069,37 @@ app.put('/api/admin/upc-requests/:id', auth, adminOnly, (req, res) => {
     .run(normalizedUpc, 'resolved', req.params.id);
 
   res.json({ success: true });
+});
+
+app.get('/api/admin/files', auth, adminOnly, (req, res) => {
+  const folders = Object.entries(FILE_MANAGER_FOLDERS).map(([key, config]) => ({
+    key,
+    label: config.label,
+    files: listManagedFolderFiles(key),
+  }));
+  res.json({ folders });
+});
+
+app.delete('/api/admin/files/:folder/:filename', auth, adminOnly, (req, res) => {
+  const filename = decodeURIComponent(req.params.filename);
+  const absolutePath = resolveManagedFilePath(req.params.folder, filename);
+  if (!absolutePath) return res.status(404).json({ error: 'Файл не найден' });
+
+  fs.unlinkSync(absolutePath);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/files/:folder', auth, adminOnly, (req, res) => {
+  const folder = getManagedFolderConfig(req.params.folder);
+  if (!folder) return res.status(404).json({ error: 'Папка не найдена' });
+
+  const files = listManagedFolderFiles(req.params.folder);
+  files.forEach((file) => {
+    const absolutePath = resolveManagedFilePath(req.params.folder, file.name);
+    if (absolutePath) fs.unlinkSync(absolutePath);
+  });
+
+  res.json({ success: true, deleted: files.length });
 });
 
 // Seed Admin
