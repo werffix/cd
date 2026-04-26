@@ -303,8 +303,8 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
     snippet: searchHtml.replace(/\s+/g, ' ').slice(0, 300),
   });
 
-  const releaseLinkMatch = searchHtml.match(/<a[^>]+href="([^"]+)"[^>]*>\s*Open release for view\s*<\/a>/i);
-  const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1]);
+  const releaseLinkMatch = searchHtml.match(/<a[^>]+title="Open release for view"[^>]+href="([^"]+)"|<a[^>]+href="([^"]+)"[^>]+title="Open release for view"/i);
+  const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1] || releaseLinkMatch?.[2]);
   if (!releaseUrl) {
     console.log('[DMB][UPC] release link not found');
     return null;
