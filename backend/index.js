@@ -224,6 +224,11 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const normalizedTitle = (title || '').trim();
   if (!normalizedArtist || !normalizedTitle) return null;
 
+  console.log('[DMB][UPC] start', {
+    artist: normalizedArtist,
+    title: normalizedTitle,
+  });
+
   let cookie = '';
 
   const loginPage = await fetchWithCookies(DMB_BASE_URL, { method: 'GET' }, cookie);
@@ -232,6 +237,15 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const loginAction = toAbsoluteUrl(extractFormAction(loginHtml, 'placeholder="Ваш Логин"') || '/');
   const loginField = extractInputNameByPlaceholder(loginHtml, 'Ваш Логин') || 'login';
   const passwordField = extractInputNameByPlaceholder(loginHtml, 'Ваш Пароль') || 'password';
+
+  console.log('[DMB][UPC] login page parsed', {
+    status: loginPage.response.status,
+    loginAction,
+    loginField,
+    passwordField,
+    hasLoginPlaceholder: loginHtml.includes('placeholder="Ваш Логин"'),
+    hasPasswordPlaceholder: loginHtml.includes('placeholder="Ваш Пароль"'),
+  });
 
   const loginBody = new URLSearchParams();
   loginBody.set(loginField, DMB_LOGIN);
@@ -246,6 +260,15 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   }, cookie);
   cookie = loginResult.cookie;
 
+  const loginResultHtml = await loginResult.response.text();
+  console.log('[DMB][UPC] login result', {
+    status: loginResult.response.status,
+    redirected: loginResult.response.status >= 300 && loginResult.response.status < 400,
+    location: loginResult.response.headers.get('location') || null,
+    hasLogoutMarker: /logout|выйти/i.test(loginResultHtml),
+    hasAlbumsListMarker: /albums\/list|Название|Артист/i.test(loginResultHtml),
+  });
+
   const listUrl = `${DMB_BASE_URL}/ru/albums/list/`;
   const listPage = await fetchWithCookies(listUrl, { method: 'GET' }, cookie);
   cookie = listPage.cookie;
@@ -253,6 +276,15 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const listAction = toAbsoluteUrl(extractFormAction(listHtml, 'placeholder="Название"') || listUrl);
   const titleField = extractInputNameByPlaceholder(listHtml, 'Название') || 'title';
   const artistField = extractInputNameByPlaceholder(listHtml, 'Артист') || 'artist';
+
+  console.log('[DMB][UPC] list page parsed', {
+    status: listPage.response.status,
+    listAction,
+    titleField,
+    artistField,
+    hasTitlePlaceholder: listHtml.includes('placeholder="Название"'),
+    hasArtistPlaceholder: listHtml.includes('placeholder="Артист"'),
+  });
 
   const searchBody = new URLSearchParams();
   searchBody.set(titleField, normalizedTitle);
@@ -268,14 +300,35 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   cookie = searchResult.cookie;
   const searchHtml = await searchResult.response.text();
 
+  console.log('[DMB][UPC] search result', {
+    status: searchResult.response.status,
+    hasOpenReleaseLink: /Open release for view/i.test(searchHtml),
+    hasBarcodeBlock: /barcode-readonly-value/i.test(searchHtml),
+    snippet: searchHtml.replace(/\s+/g, ' ').slice(0, 300),
+  });
+
   const releaseLinkMatch = searchHtml.match(/<a[^>]+href="([^"]+)"[^>]*>\s*Open release for view\s*<\/a>/i);
   const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1]);
-  if (!releaseUrl) return null;
+  if (!releaseUrl) {
+    console.log('[DMB][UPC] release link not found');
+    return null;
+  }
+
+  console.log('[DMB][UPC] release link found', { releaseUrl });
 
   const detailResult = await fetchWithCookies(releaseUrl, { method: 'GET' }, cookie);
   const detailHtml = await detailResult.response.text();
   const upcMatch = detailHtml.match(/readonly-input-value barcode-readonly-value[^>]*>\s*([^<\s][^<]*)\s*</i);
-  return upcMatch?.[1]?.trim() || null;
+  const upc = upcMatch?.[1]?.trim() || null;
+
+  console.log('[DMB][UPC] detail parsed', {
+    status: detailResult.response.status,
+    hasBarcodeBlock: /barcode-readonly-value/i.test(detailHtml),
+    upcFound: Boolean(upc),
+    upcPreview: upc ? `${upc.slice(0, 4)}...${upc.slice(-4)}` : null,
+  });
+
+  return upc;
 };
 
 // Auth Routes
