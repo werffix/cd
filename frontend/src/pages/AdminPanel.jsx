@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, BadgeCheck, CheckCheck, ChevronDown, KeyRound, LayoutGrid, Menu, MessageSquare, Search, Send, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, Disc3, FolderOpen, KeyRound, Menu, MessageSquare, Search, Send, Shield, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
-import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease } from '../lib/releases';
+import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease, resolveAssetUrl } from '../lib/releases';
 import { useAuth } from '../AuthContext';
 
 const getArtistLabel = (release) =>
@@ -15,22 +15,21 @@ const USER_STATUS_META = {
   pending: { label: 'На рассмотрении', badge: 'border-blue-500/25 bg-blue-500/15 text-blue-100' },
 };
 
-const ADMIN_NAV_ITEMS = [
-  { label: 'Действия', icon: LayoutGrid, key: 'actions' },
-  { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
-  { label: 'Пользователи', icon: Users, key: 'users' },
-  { label: 'Поддержка', icon: MessageSquare, key: 'support' },
-  { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
-];
+const ROLE_LABELS = {
+  artist: 'Артист',
+  moderator: 'Модератор',
+  admin: 'Админ',
+};
 
 export default function AdminPanel() {
   const { user, logout, updateUser } = useAuth();
   const [releases, setReleases] = useState([]);
+  const [myReleases, setMyReleases] = useState([]);
   const [selectedRelease, setSelectedRelease] = useState(null);
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState('actions');
+  const [activeSection, setActiveSection] = useState('releases');
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
@@ -53,6 +52,27 @@ export default function AdminPanel() {
   const [supportModal, setSupportModal] = useState({ open: false, ticket: null, messages: [], reply: '', attachment: null });
   const [labels, setLabels] = useState([]);
   const [labelForm, setLabelForm] = useState({ userQuery: '', labelName: '' });
+  const [fileFolders, setFileFolders] = useState([]);
+  const [activeFileFolder, setActiveFileFolder] = useState('covers');
+
+  const navItems = useMemo(() => {
+    if (user?.role === 'moderator') {
+      return [
+        { label: 'Релизы', icon: Disc3, key: 'releases' },
+        { label: 'Мои релизы', icon: Shield, key: 'my-releases', dividerBefore: true },
+        { label: 'Поддержка', icon: MessageSquare, key: 'support', dividerBefore: true },
+      ];
+    }
+
+    return [
+      { label: 'Релизы', icon: Disc3, key: 'releases' },
+      { label: 'Файловый менеджер', icon: FolderOpen, key: 'files', dividerBefore: true },
+      { label: 'Запросы UPC', icon: Ticket, key: 'upc' },
+      { label: 'Пользователи', icon: Users, key: 'users', dividerBefore: true },
+      { label: 'Поддержка', icon: MessageSquare, key: 'support' },
+      { label: 'Лейблы', icon: BadgeCheck, key: 'labels' },
+    ];
+  }, [user?.role]);
 
   const fetchReleases = async () => {
     const res = await api.get('/admin/releases');
@@ -91,14 +111,41 @@ export default function AdminPanel() {
     return res.data;
   };
 
+  const fetchMyReleases = async () => {
+    const res = await api.get('/admin/my-releases');
+    const parsed = res.data.map(parseRelease);
+    setMyReleases(parsed);
+    return parsed;
+  };
+
+  const fetchFiles = async () => {
+    const res = await api.get('/admin/files');
+    const folders = res.data.folders || [];
+    setFileFolders(folders);
+    if (folders.length && !folders.some((folder) => folder.key === activeFileFolder)) {
+      setActiveFileFolder(folders[0].key);
+    }
+    return folders;
+  };
+
   useEffect(() => {
     fetchReleases();
-    fetchUpcRequests();
-    fetchUsers();
-    fetchRegistrationRequests();
+    fetchMyReleases();
     fetchSupportTickets();
-    fetchLabels();
-  }, []);
+    if (user?.role === 'admin') {
+      fetchUpcRequests();
+      fetchUsers();
+      fetchRegistrationRequests();
+      fetchLabels();
+      fetchFiles();
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    if (!navItems.some((item) => item.key === activeSection)) {
+      setActiveSection(navItems[0]?.key || 'releases');
+    }
+  }, [activeSection, navItems]);
 
   useEffect(() => {
     setAvatarPreview(user?.avatar || '');
@@ -111,7 +158,7 @@ export default function AdminPanel() {
 
   useEffect(() => {
     setQuery('');
-    if (activeSection === 'actions') setFilter('all');
+    if (activeSection === 'releases' || activeSection === 'my-releases') setFilter('all');
     if (activeSection === 'users') setFilter('all-users');
   }, [activeSection]);
 
@@ -160,9 +207,9 @@ export default function AdminPanel() {
 
   const updateStatus = async (id, status, moderatorComment = '') => {
     await api.put(`/admin/releases/${id}`, { status, moderator_comment: moderatorComment });
-    const updated = await fetchReleases();
+    const [updated, ownUpdated] = await Promise.all([fetchReleases(), fetchMyReleases()]);
     if (selectedRelease?.id === id) {
-      const nextSelected = updated.find((item) => item.id === id);
+      const nextSelected = updated.find((item) => item.id === id) || ownUpdated.find((item) => item.id === id);
       if (nextSelected) setSelectedRelease(nextSelected);
     }
   };
@@ -170,9 +217,9 @@ export default function AdminPanel() {
   const deleteRelease = async (releaseId) => {
     if (!window.confirm('Удалить релиз без возможности восстановления?')) return;
     await api.delete(`/admin/releases/${releaseId}`);
-    const updated = await fetchReleases();
+    const [updated, ownUpdated] = await Promise.all([fetchReleases(), fetchMyReleases()]);
     if (selectedRelease?.id === releaseId) {
-      const nextSelected = updated[0] || null;
+      const nextSelected = updated[0] || ownUpdated[0] || null;
       setSelectedRelease(nextSelected);
     }
   };
@@ -313,6 +360,30 @@ export default function AdminPanel() {
     }
   };
 
+  const updateUserRole = async (account, role) => {
+    try {
+      await api.put(`/admin/users/${account.id}/set-role`, { role });
+      await refreshUsersData();
+      showAdminMessage(role === 'moderator' ? 'Роль модератора выдана' : role === 'admin' ? 'Права администратора выданы' : 'Роль обновлена');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось обновить роль');
+    }
+  };
+
+  const deleteManagedFile = async (folderKey, fileName) => {
+    if (!window.confirm(`Удалить файл ${fileName}?`)) return;
+    await api.delete(`/admin/files/${folderKey}/${encodeURIComponent(fileName)}`);
+    await fetchFiles();
+    showAdminMessage('Файл удалён');
+  };
+
+  const deleteAllManagedFiles = async (folderKey) => {
+    if (!window.confirm('Удалить все файлы из этой папки?')) return;
+    const res = await api.delete(`/admin/files/${folderKey}`);
+    await fetchFiles();
+    showAdminMessage(`Удалено файлов: ${res.data.deleted ?? 0}`);
+  };
+
   const filteredReleases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return releases.filter((release) => {
@@ -323,6 +394,16 @@ export default function AdminPanel() {
       return haystack.includes(normalizedQuery);
     });
   }, [filter, query, releases]);
+
+  const filteredMyReleases = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return myReleases.filter((release) => {
+      const matchesFilter = filter === 'all' ? true : release.status === filter;
+      if (!matchesFilter) return false;
+      if (!normalizedQuery) return true;
+      return `${release.title || ''} ${getArtistLabel(release)}`.toLowerCase().includes(normalizedQuery);
+    });
+  }, [filter, myReleases, query]);
 
   const filteredUsers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -344,6 +425,18 @@ export default function AdminPanel() {
 
   const avatarFallback = useMemo(() => (!avatarPreview ? user?.name?.slice(0, 1)?.toUpperCase() : ''), [avatarPreview, user]);
   const hasUnreadSupport = useMemo(() => supportTickets.some((ticket) => Number(ticket.admin_unread) > 0), [supportTickets]);
+  const activeFilesFolder = useMemo(
+    () => fileFolders.find((folder) => folder.key === activeFileFolder) || fileFolders[0] || null,
+    [activeFileFolder, fileFolders],
+  );
+  const canModerateSelectedRelease = useMemo(
+    () => (selectedRelease ? releases.some((item) => item.id === selectedRelease.id) : false),
+    [releases, selectedRelease],
+  );
+  const canDeleteSelectedRelease = useMemo(
+    () => Boolean(selectedRelease && (user?.role === 'admin' || Number(selectedRelease.user_id) === Number(user?.id))),
+    [selectedRelease, user],
+  );
 
   const buildActionButtons = (release, fullWidth = false) => {
     if (!release) return null;
@@ -420,30 +513,35 @@ export default function AdminPanel() {
               </button>
             ) : null}
           </div>
+          <div className="mx-3 border-t border-zinc-800/70" />
           <div className="flex flex-col gap-3 p-3">
-            {ADMIN_NAV_ITEMS.map(({ label, icon: Icon, key }) => {
+            {navItems.map(({ label, icon: Icon, key, dividerBefore }) => {
               const isActive = activeSection === key;
               const unread = key === 'support' && hasUnreadSupport;
               return (
-                <button
-                  key={label}
-                  type="button"
-                  title={label}
-                  onClick={() => setActiveSection(key)}
-                  className={`relative flex items-center rounded-2xl transition ${
-                    sidebarOpen
-                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
-                      : `h-12 w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
-                  }`}
-                >
-                  <Icon size={18} />
-                  {sidebarOpen ? <span>{label}</span> : null}
-                  {unread ? (
-                    <span className={`rounded-full border border-blue-500 bg-blue-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${sidebarOpen ? 'ml-auto' : 'absolute -right-1 -top-1 px-1.5'}`}>
-                      Новое
+                <div key={label} className="space-y-3">
+                  {dividerBefore ? <div className="border-t border-zinc-800/70" /> : null}
+                  <button
+                    type="button"
+                    title={label}
+                    onClick={() => setActiveSection(key)}
+                    className={`relative flex h-12 items-center rounded-2xl transition ${
+                      sidebarOpen
+                        ? `w-full gap-3 px-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                        : `w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
+                    }`}
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                      <Icon size={18} />
                     </span>
-                  ) : null}
-                </button>
+                    {sidebarOpen ? <span>{label}</span> : null}
+                    {unread ? (
+                      <span className={`rounded-full border border-blue-500 bg-blue-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white ${sidebarOpen ? 'ml-auto' : 'absolute -right-1 -top-1 px-1.5'}`}>
+                        Новое
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -454,7 +552,8 @@ export default function AdminPanel() {
             <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
                 <div className="flex items-center gap-3 pl-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-base font-bold tracking-wide text-white">Панель модерации</span>
+                    <Disc3 size={16} className="text-zinc-400" />
+                    <span className="text-sm font-semibold tracking-wide text-white">Панель модерации</span>
                   </div>
                 </div>
 
@@ -518,7 +617,7 @@ export default function AdminPanel() {
               </div>
             </header>
 
-            {activeSection === 'actions' ? (
+            {activeSection === 'releases' ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-2">
@@ -546,14 +645,21 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {filteredReleases.map((release) => {
                 const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                 return (
-                  <div key={release.id} className="rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl">
-                    <button type="button" onClick={() => setSelectedRelease(release)} className="block w-full text-left">
+                  <div
+                    key={release.id}
+                    className="overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl transition-all duration-300 hover:border-zinc-600 hover:shadow-white/5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRelease(release)}
+                      className="group flex w-full flex-col text-left"
+                    >
                       <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
-                        <img src={release.cover} alt={release.title} className="h-full w-full rounded-t-2xl object-cover transition duration-700 hover:scale-105" />
+                        <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                         <div className="absolute right-3 top-3">
                           <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
                             {statusMeta.label}
@@ -566,8 +672,9 @@ export default function AdminPanel() {
                             </span>
                           </div>
                         ) : null}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
-                      <div className="space-y-4 px-5 pb-5 pt-4">
+                      <div className="flex flex-1 flex-col space-y-4 px-5 pb-5 pt-4">
                     <div>
                       <h3 className="text-lg font-bold tracking-tight text-white">
                         {release.title}
@@ -589,6 +696,144 @@ export default function AdminPanel() {
               })}
                 </section>
               </>
+            ) : activeSection === 'my-releases' ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2">
+                    {ADMIN_FILTERS.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setFilter(item.key)}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          filter === item.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative w-full max-w-xs">
+                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Поиск по названию"
+                      className="field-input w-full pl-11"
+                    />
+                  </div>
+                </div>
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  {filteredMyReleases.length ? filteredMyReleases.map((release) => {
+                    const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
+                    return (
+                      <button
+                        key={release.id}
+                        type="button"
+                        onClick={() => setSelectedRelease(release)}
+                        className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] text-left transition-all duration-300 hover:border-zinc-600 hover:shadow-2xl hover:shadow-white/5"
+                      >
+                        <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
+                          <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                          <div className="absolute right-3 top-3">
+                            <span className={`rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${statusMeta.badgeClass}`}>
+                              {statusMeta.label}
+                            </span>
+                          </div>
+                          {release.metadata?.moderator_comment ? (
+                            <div className="absolute bottom-3 left-3">
+                              <span className="rounded-full border border-blue-500 bg-blue-500 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                Комм. от модератора
+                              </span>
+                            </div>
+                          ) : null}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        </div>
+                        <div className="flex flex-1 flex-col p-5">
+                          <div>
+                            <h3 className="truncate text-lg font-bold tracking-tight text-zinc-100">
+                              {release.title}
+                              {release.subtitle ? ` (${release.subtitle})` : ''}
+                            </h3>
+                            <p className="mt-1 truncate text-sm font-medium text-zinc-400">{release.artists}</p>
+                          </div>
+                          <div className="mt-auto pt-5 flex items-center justify-between text-xs">
+                            <span className="font-medium text-zinc-500">Дата релиза</span>
+                            <span className="font-semibold text-zinc-300">{formatDate(release.metadata?.release_date || release.created_at)}</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }) : (
+                    <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 text-sm text-zinc-400">
+                      У вас пока нет релизов.
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : activeSection === 'files' ? (
+              <section className="space-y-5">
+                <div className="flex flex-wrap gap-2">
+                  {fileFolders.map((folder) => (
+                    <button
+                      key={folder.key}
+                      type="button"
+                      onClick={() => setActiveFileFolder(folder.key)}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                        activeFilesFolder?.key === folder.key ? 'border-white bg-white text-black' : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
+                      }`}
+                    >
+                      {folder.label}
+                    </button>
+                  ))}
+                </div>
+                {activeFilesFolder ? (
+                  <div className="rounded-2xl border border-zinc-800/60 bg-[#121212] p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/60 pb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">{activeFilesFolder.label}</h3>
+                        <p className="mt-1 text-sm text-zinc-400">Файлов: {activeFilesFolder.files.length}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteAllManagedFiles(activeFilesFolder.key)}
+                        className="secondary-button border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                      >
+                        Удалить все
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {activeFilesFolder.files.length ? activeFilesFolder.files.map((file) => (
+                        <div key={`${activeFilesFolder.key}-${file.name}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-white">{file.name}</p>
+                            <p className="mt-1 text-xs text-zinc-500">{formatDateTime(file.modified_at)} • {Math.max(1, Math.round(file.size / 1024))} KB</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <a href={resolveAssetUrl(file.url)} target="_blank" rel="noreferrer" className="secondary-button">
+                              Открыть
+                            </a>
+                            <a href={resolveAssetUrl(file.url)} download className="secondary-button">
+                              Скачать
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => deleteManagedFile(activeFilesFolder.key, file.name)}
+                              className="secondary-button border-red-400/20 bg-red-400/10 text-red-100 hover:bg-red-400/20"
+                            >
+                              Удалить
+                            </button>
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-5 text-sm text-zinc-400">
+                          В этой папке пока нет файлов.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
             ) : activeSection === 'upc' ? (
               <section className="space-y-4">
                 {upcRequests.length ? upcRequests.map((request) => (
@@ -727,7 +972,7 @@ export default function AdminPanel() {
                           </div>
                           <div className="mt-4 space-y-2 text-sm text-zinc-400">
                             <p>{account.email}</p>
-                            <p>Роль: <span className="text-zinc-200">{account.role === 'admin' ? 'Админ' : 'Артист'}</span></p>
+                            <p>Роль: <span className="text-zinc-200">{ROLE_LABELS[account.role] || 'Артист'}</span></p>
                             <p>Релизы: <span className="text-zinc-200">{account.releases_count || 0}</span></p>
                           </div>
                         </button>
@@ -821,9 +1066,9 @@ export default function AdminPanel() {
         release={selectedRelease}
         onClose={() => setSelectedRelease(null)}
         showOwner
-        actionButtons={buildActionButtons(selectedRelease)}
+        actionButtons={canModerateSelectedRelease ? buildActionButtons(selectedRelease) : null}
         onRecall={(release) => setCommentModal({ open: true, release, status: 'revoked', comment: '' })}
-        onDelete={(release) => deleteRelease(release.id)}
+        onDelete={canDeleteSelectedRelease ? (release) => deleteRelease(release.id) : undefined}
       />
 
       {settingsOpen ? (
@@ -1000,7 +1245,7 @@ export default function AdminPanel() {
                     <div className="mt-4 grid gap-3 text-sm text-zinc-300 sm:grid-cols-2">
                       <p>Логин: <span className="text-white">@{userModal.user?.login}</span></p>
                       <p>Email: <span className="text-white">{userModal.user?.email || 'Не указан'}</span></p>
-                      <p>Роль: <span className="text-white">{userModal.user?.role === 'admin' ? 'Админ' : 'Артист'}</span></p>
+                      <p>Роль: <span className="text-white">{ROLE_LABELS[userModal.user?.role] || 'Артист'}</span></p>
                       <p>Telegram: <span className="text-white">{userModal.user?.telegram || 'Не указан'}</span></p>
                     </div>
                     {userModal.user?.status_reason ? (
@@ -1051,6 +1296,12 @@ export default function AdminPanel() {
                       <KeyRound size={16} />
                       Сбросить пароль
                     </button>
+                    {userModal.user?.role !== 'moderator' ? (
+                      <button type="button" onClick={() => updateUserRole(userModal.user, 'moderator')} className="secondary-button w-full justify-center">
+                        <Shield size={16} />
+                        Выдать модератора
+                      </button>
+                    ) : null}
                     {userModal.user?.role !== 'admin' ? (
                       <button type="button" onClick={() => promoteUser(userModal.user)} className="secondary-button w-full justify-center">
                         <ShieldCheck size={16} />
@@ -1128,7 +1379,7 @@ export default function AdminPanel() {
               {supportModal.messages.map((entry) => (
                 <div key={entry.id} className={`rounded-2xl border p-4 ${entry.author_role === 'admin' ? 'border-blue-500/20 bg-blue-500/10' : 'border-zinc-800/60 bg-zinc-900/40'}`}>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">{entry.author_role === 'admin' ? 'Администратор' : (entry.name || entry.login || 'Артист')}</p>
+                    <p className="text-sm font-semibold text-white">{['admin', 'moderator'].includes(entry.author_role) ? 'Команда CDCULT' : (entry.name || entry.login || 'Артист')}</p>
                     <p className="text-xs text-zinc-500">{formatDateTime(entry.created_at)}</p>
                   </div>
                   <p className="mt-3 whitespace-pre-line text-sm text-zinc-300">{entry.message}</p>
@@ -1176,8 +1427,8 @@ export default function AdminPanel() {
       ) : null}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/60 bg-[#0f0f0f]/95 px-2 py-2 backdrop-blur-xl md:hidden">
-        <div className="grid grid-cols-5 gap-2">
-          {ADMIN_NAV_ITEMS.map(({ label, icon: Icon, key }) => {
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}>
+          {navItems.map(({ label, icon: Icon, key }) => {
             const isActive = activeSection === key;
             const unread = key === 'support' && hasUnreadSupport;
             return (
@@ -1192,7 +1443,9 @@ export default function AdminPanel() {
                     : 'border-zinc-800/60 bg-zinc-900/40 text-zinc-300'
                 }`}
               >
-                <Icon size={18} />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  <Icon size={18} />
+                </span>
                 {unread ? (
                   <span className="absolute -right-1 -top-1 rounded-full border border-blue-500 bg-blue-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
                     New

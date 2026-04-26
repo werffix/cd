@@ -6,10 +6,10 @@ import siteLogo from '../assets/site-logo.png';
 const NAV_ITEMS = [
   { label: 'Главная страница', icon: Home, to: '/dashboard' },
   { label: 'Новый релиз', icon: Plus, to: '/dashboard/new' },
-  { label: 'Аналитика', icon: BarChart3, to: '/dashboard/analytics' },
+  { label: 'Аналитика', icon: BarChart3, to: '/dashboard/analytics', dividerBefore: true },
   { label: 'Смарт-Линк', icon: Link2, to: '/dashboard/smart-link' },
   { label: 'FAQ', icon: CircleHelp, to: '/dashboard/faq' },
-  { label: 'Поддержка', icon: MessageSquare, to: '/dashboard/support' },
+  { label: 'Поддержка', icon: MessageSquare, to: '/dashboard/support', dividerBefore: true },
 ];
 
 export default function ArtistShell({ user, avatarPreview, avatarFallback, menuOpen, setMenuOpen, logout, setSettingsOpen, actionSlot, children }) {
@@ -46,26 +46,32 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
               </button>
             ) : null}
           </div>
+          <div className="mx-3 border-t border-zinc-800/70" />
           <div className="flex flex-col gap-3 p-3">
-            {NAV_ITEMS.map(({ label, icon: Icon, to }) => {
+            {NAV_ITEMS.map(({ label, icon: Icon, to, dividerBefore }) => {
               const isActive = location.pathname === to;
               return (
-                <NavLink
-                  key={to}
-                  to={to}
-                  title={label}
-                  className={`flex items-center rounded-2xl transition ${
-                    sidebarOpen
-                      ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
-                      : `h-12 w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
-                  }`}
-                >
-                  <Icon size={18} />
-                  {sidebarOpen ? <span>{label}</span> : null}
-                </NavLink>
+                <div key={to} className="space-y-3">
+                  {dividerBefore ? <div className="border-t border-zinc-800/70" /> : null}
+                  <NavLink
+                    to={to}
+                    title={label}
+                    className={`flex h-12 items-center rounded-2xl transition ${
+                      sidebarOpen
+                        ? `w-full gap-3 px-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
+                        : `w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
+                    }`}
+                  >
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                      <Icon size={18} />
+                    </span>
+                    {sidebarOpen ? <span>{label}</span> : null}
+                  </NavLink>
+                </div>
               );
             })}
           </div>
+          <div className="mx-3 mt-auto border-t border-zinc-800/70" />
         </aside>
 
         <div className="flex-1">

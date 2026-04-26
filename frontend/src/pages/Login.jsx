@@ -19,7 +19,7 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', form);
       authLogin(res.data);
-      nav(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
+      nav(['admin', 'moderator'].includes(res.data.user.role) ? '/admin' : '/dashboard');
     } catch (e) {
       const response = e.response?.data;
       if (response?.code === 'pending_review' || response?.code === 'registration_rejected' || response?.code === 'account_blocked') {

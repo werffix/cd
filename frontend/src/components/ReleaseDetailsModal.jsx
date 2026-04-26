@@ -119,11 +119,13 @@ export default function ReleaseDetailsModal({
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
+  const [upcStatusOpen, setUpcStatusOpen] = useState(false);
 
   useEffect(() => {
     setSelectedTrackIndex(null);
     setActionsOpen(false);
     setCommentOpen(false);
+    setUpcStatusOpen(false);
   }, [release?.id]);
 
   if (!release) return null;
@@ -204,6 +206,14 @@ export default function ReleaseDetailsModal({
     }
   };
 
+  const handleRequestUpcClick = () => {
+    if (release.status !== 'shipped') {
+      setUpcStatusOpen(true);
+      return;
+    }
+    onRequestUpc?.(release);
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 sm:p-6 backdrop-blur-sm" onClick={onClose}>
@@ -258,7 +268,7 @@ export default function ReleaseDetailsModal({
                 {!release.metadata?.upc && !showOwner ? (
                   <button
                     type="button"
-                    onClick={() => onRequestUpc?.(release)}
+                    onClick={handleRequestUpcClick}
                     disabled={Boolean(release.metadata?.upc_requested) || requestingUpc}
                     className="secondary-button mt-3 w-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -290,21 +300,23 @@ export default function ReleaseDetailsModal({
                         Отозвать с площадок
                       </button>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onEdit?.(release);
-                        setActionsOpen(false);
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
-                    >
-                      Редактировать релиз
-                    </button>
-                    {(release.status === 'draft' || release.status === 'moderation' || release.status === 'delivered') ? (
+                    {onEdit ? (
                       <button
                         type="button"
                         onClick={() => {
-                          onDelete?.(release);
+                          onEdit(release);
+                          setActionsOpen(false);
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800/60"
+                      >
+                        Редактировать релиз
+                      </button>
+                    ) : null}
+                    {onDelete && (release.status === 'draft' || release.status === 'moderation' || release.status === 'delivered') ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDelete(release);
                           setActionsOpen(false);
                         }}
                         className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-200 hover:bg-zinc-800/60"
@@ -350,6 +362,25 @@ export default function ReleaseDetailsModal({
               <div>
                 <h3 className="text-3xl font-bold tracking-tight text-white">{release.title}</h3>
                 <p className="mt-1 text-xl font-medium text-zinc-400">{release.artists}</p>
+              </div>
+
+              <div className="border-t border-zinc-800/50 pt-6">
+                <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
+                <div className="mt-5 grid gap-4 text-sm md:grid-cols-2">
+                  {releaseFields.map((field) => (
+                    <div key={field.label} className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-zinc-600">{field.label}</p>
+                        <p className="mt-1 break-words font-medium text-zinc-300">{field.value}</p>
+                      </div>
+                      {showOwner && copyEnabledLabels.has(field.label) ? (
+                        <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
+                          <Copy size={14} />
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -458,25 +489,6 @@ export default function ReleaseDetailsModal({
                   })}
                 </div>
               </div>
-
-              <div className="border-t border-zinc-800/50 pt-6">
-                <p className="text-sm font-bold uppercase tracking-[0.24em] text-zinc-500">Данные о релизе</p>
-                <div className="mt-5 grid gap-4 text-sm md:grid-cols-2">
-                  {releaseFields.map((field) => (
-                    <div key={field.label} className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-zinc-600">{field.label}</p>
-                        <p className="mt-1 break-words font-medium text-zinc-300">{field.value}</p>
-                      </div>
-                      {showOwner && copyEnabledLabels.has(field.label) ? (
-                        <button type="button" onClick={() => copyValue(field.value)} className="rounded-md p-1 text-zinc-400 hover:text-white">
-                          <Copy size={14} />
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </section>
           </div>
         </div>
@@ -489,6 +501,22 @@ export default function ReleaseDetailsModal({
             <p className="mt-4 whitespace-pre-line text-sm leading-6 text-zinc-300">{release.metadata?.moderator_comment}</p>
             <button type="button" onClick={() => setCommentOpen(false)} className="primary-button mt-6">
               Закрыть
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {upcStatusOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={() => setUpcStatusOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-[#121212] p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold text-white">Запрос UPC пока недоступен</h3>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">
+              Как только релиз получит статус <span className="font-semibold text-white">«Доставлен»</span>, здесь можно будет запросить UPC автоматически.
+            </p>
+            <div className="mt-4 rounded-2xl border border-zinc-800/70 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
+              Сейчас запрос UPC доступен только для релизов, которые уже доставлены на площадки.
+            </div>
+            <button type="button" onClick={() => setUpcStatusOpen(false)} className="primary-button mt-6 w-full justify-center">
+              Понятно
             </button>
           </div>
         </div>

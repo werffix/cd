@@ -13,7 +13,10 @@ import SupportPage from './pages/SupportPage';
 const Protect = ({ children, role }) => {
   const { user, token } = useAuth();
   if (!token) return <Navigate to="/login" />;
-  if (role && user?.role !== role) return <Navigate to="/login" />;
+  if (role) {
+    const allowedRoles = Array.isArray(role) ? role : [role];
+    if (!allowedRoles.includes(user?.role)) return <Navigate to="/login" />;
+  }
   return children;
 };
 
@@ -26,7 +29,7 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/admin" element={<Protect role="admin"><AdminPanel /></Protect>} />
+          <Route path="/admin" element={<Protect role={['admin', 'moderator']}><AdminPanel /></Protect>} />
           <Route path="/dashboard" element={<Protect><DistributionDashboard /></Protect>} />
           <Route path="/dashboard/new" element={<Protect><ReleaseFormPage /></Protect>} />
           <Route path="/dashboard/analytics" element={<Protect><ArtistPlaceholderPage title="Аналитика" /></Protect>} />

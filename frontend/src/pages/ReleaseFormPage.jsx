@@ -95,6 +95,16 @@ const SelectField = ({ label, name, error, children, className = '', wrapperClas
   </label>
 );
 
+const ReleaseCheckbox = ({ label, checked, onChange }) => (
+  <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300 transition hover:border-zinc-700">
+    <span className="font-medium text-white">{label}</span>
+    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${checked ? 'border-white bg-white text-black' : 'border-zinc-700 bg-zinc-950 text-transparent'}`}>
+      <input type="checkbox" checked={checked} onChange={onChange} className="sr-only" />
+      <Check size={15} />
+    </span>
+  </label>
+);
+
 export default function ReleaseFormPage() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
@@ -697,24 +707,26 @@ export default function ReleaseFormPage() {
                   </div>
                   <div className="flex flex-col gap-5 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex flex-1 min-h-[148px] flex-col justify-between text-left">
-                      <div className="mb-2 flex flex-wrap items-center gap-4 text-zinc-300">
+                      <div className="space-y-4 text-zinc-300">
                         <span className="inline-flex items-center gap-2">
                           <Upload size={16} />
                           Выберите или перетащите изображение
                         </span>
-                        <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200">
-                          Выберите файл
-                          <input
-                            name="cover_image"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={handleChange}
-                            className="sr-only"
-                          />
-                        </label>
-                        <span className="text-sm text-zinc-500">
-                          {formData.cover_image?.name || 'Файл не выбран'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200">
+                            Выберите файл
+                            <input
+                              name="cover_image"
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              onChange={handleChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <span className="text-sm text-zinc-500">
+                            {formData.cover_image?.name || 'Файл не выбран'}
+                          </span>
+                        </div>
                       </div>
                       <div className="mt-auto">
                         {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
@@ -798,36 +810,22 @@ export default function ReleaseFormPage() {
                       </label>
                     </div>
 
-                    <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
-                      <span className="font-medium text-white">Ненормативная лексика</span>
-                      <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.explicit ? 'bg-white' : 'bg-zinc-800'}`}>
-                        <input
-                          type="checkbox"
-                          checked={track.explicit}
-                          onChange={(e) => handleTrackChange(index, 'explicit', e.target.checked)}
-                          className="peer sr-only"
-                        />
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.explicit ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </span>
-                    </label>
-                      <label className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-300">
-                        <span className="font-medium text-white">Инструментальная музыка</span>
-                        <span className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${track.instrumental ? 'bg-white' : 'bg-zinc-800'}`}>
-                          <input
-                            type="checkbox"
-                            checked={track.instrumental}
-                            onChange={(e) => {
-                              const nextValue = e.target.checked;
-                              handleTrackChange(index, 'instrumental', nextValue);
-                              if (nextValue && !track.lyrics_authors) {
-                                handleTrackChange(index, 'lyrics_authors', '-');
-                              }
-                            }}
-                            className="peer sr-only"
-                          />
-                          <span className={`inline-block h-5 w-5 transform rounded-full bg-black transition ${track.instrumental ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </span>
-                      </label>
+                    <ReleaseCheckbox
+                      label="Ненормативная лексика"
+                      checked={track.explicit}
+                      onChange={(e) => handleTrackChange(index, 'explicit', e.target.checked)}
+                    />
+                    <ReleaseCheckbox
+                      label="Инструментальная музыка"
+                      checked={track.instrumental}
+                      onChange={(e) => {
+                        const nextValue = e.target.checked;
+                        handleTrackChange(index, 'instrumental', nextValue);
+                        if (nextValue && !track.lyrics_authors) {
+                          handleTrackChange(index, 'lyrics_authors', '-');
+                        }
+                      }}
+                    />
                   </div>
                 ))}
               </div>
