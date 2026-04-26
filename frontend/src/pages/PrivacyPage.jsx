@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function PrivacyPage() {
   return (
-    <div className="app-shell min-h-screen bg-[#000000] px-4 py-10 sm:px-6">
+    <div className="app-shell min-h-screen px-4 py-10 sm:px-6">
       <div className="mx-auto max-w-4xl rounded-2xl border border-zinc-800/60 bg-[#121212] p-6 shadow-2xl sm:p-8">
         <div className="mb-8 flex items-center justify-between gap-4">
           <div>

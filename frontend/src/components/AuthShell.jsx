@@ -11,7 +11,7 @@ export default function AuthShell({
   compact = false,
 }) {
   return (
-    <div className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden bg-[#000000] px-4 py-8 sm:px-6">
+    <div className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8 sm:px-6">
       <div className="auth-aurora" />
       <section className="glass-card relative w-full max-w-md overflow-hidden bg-[#121212] p-6 sm:p-8">
         <div className="relative z-10">

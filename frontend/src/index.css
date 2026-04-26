@@ -50,9 +50,9 @@
 	  }
 
 	  @keyframes siteAuroraFlow {
-	    0% { background-position: 0% 50%, 100% 0%, 50% 100%; }
-	    50% { background-position: 100% 40%, 0% 30%, 40% 0%; }
-	    100% { background-position: 0% 50%, 100% 0%, 50% 100%; }
+	    0% { transform: translate3d(-8%, -3%, 0) scale(1); opacity: 0.28; }
+	    50% { transform: translate3d(6%, 4%, 0) scale(1.12); opacity: 0.42; }
+	    100% { transform: translate3d(-4%, 2%, 0) scale(1.04); opacity: 0.32; }
 	  }
 
   .lucide {
@@ -63,14 +63,30 @@
 
 @layer components {
 	  .app-shell {
+	    position: relative;
 	    min-height: 100vh;
+	    overflow: hidden;
 	    color: white;
+	    background: #050505 !important;
+	  }
+
+	  .app-shell::before {
+	    content: "";
+	    position: fixed;
+	    inset: -22%;
+	    z-index: 0;
+	    pointer-events: none;
 	    background:
-	      radial-gradient(60% 48% at 18% 18%, rgba(255, 255, 255, 0.10), transparent 70%),
-	      radial-gradient(54% 46% at 82% 8%, rgba(255, 255, 255, 0.08), transparent 72%),
-	      linear-gradient(135deg, #040404 0%, #0a0a0a 42%, #111111 100%) !important;
-	    background-size: 180% 180%, 170% 170%, 100% 100%;
+	      radial-gradient(42% 34% at 18% 28%, rgba(255, 255, 255, 0.14), transparent 74%),
+	      radial-gradient(36% 30% at 78% 16%, rgba(255, 255, 255, 0.10), transparent 76%),
+	      radial-gradient(46% 32% at 52% 92%, rgba(255, 255, 255, 0.08), transparent 78%);
+	    filter: blur(72px);
 	    animation: siteAuroraFlow 18s ease-in-out infinite;
+	  }
+
+	  .app-shell > * {
+	    position: relative;
+	    z-index: 1;
 	  }
 
   .glass-card {

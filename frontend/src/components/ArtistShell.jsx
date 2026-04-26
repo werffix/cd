@@ -18,7 +18,7 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="app-shell min-h-screen bg-[#0a0a0a]">
+    <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
         <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
@@ -74,8 +74,8 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
         </aside>
 
         <div className="flex-1">
-          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#0a0a0a]/90 px-5 backdrop-blur-xl sm:px-7">
-            <div className="flex items-center gap-3 pl-2">
+          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-black/45 px-5 backdrop-blur-xl sm:px-7">
+            <div className="flex items-center gap-3 pl-5 sm:pl-8">
               <button type="button" onClick={() => navigate('/dashboard')} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                 <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
               </button>

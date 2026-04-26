@@ -487,7 +487,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="app-shell min-h-screen bg-[#0a0a0a]">
+    <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
         <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
@@ -549,8 +549,8 @@ export default function AdminPanel() {
 
         <div className="flex-1 pb-24 md:pb-0">
           <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
-            <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-[#0a0a0a]/90 pb-5 backdrop-blur-xl">
-                <div className="flex items-center gap-3 pl-2">
+            <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-black/45 pb-5 backdrop-blur-xl">
+                <div className="flex items-center gap-3 pl-5 sm:pl-8">
                   <div className="flex items-center gap-2">
                     <Disc3 size={16} className="text-zinc-400" />
                     <span className="text-sm font-semibold tracking-wide text-white">Панель модерации</span>
