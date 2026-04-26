@@ -705,9 +705,9 @@ export default function ReleaseFormPage() {
                       Требования к обложке
                     </button>
                   </div>
-                  <div className="flex flex-col gap-5 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex flex-1 min-h-[148px] flex-col justify-between text-left">
-                      <div className="space-y-4 text-zinc-300">
+                  <div className="flex flex-col gap-4 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-1 flex-col justify-center text-left">
+                      <div className="space-y-3 text-zinc-300">
                         <span className="inline-flex items-center gap-2">
                           <Upload size={16} />
                           Выберите или перетащите изображение
@@ -728,11 +728,11 @@ export default function ReleaseFormPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-auto">
+                      <div>
                         {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                       </div>
                     </div>
-                    <div className="flex items-start justify-end lg:pl-8">
+                    <div className="flex items-center justify-end lg:pl-8">
                       <div className="h-24 w-24 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
                         {coverPreview ? (
                           <img src={coverPreview} alt="Preview" className="h-full w-full object-cover" />

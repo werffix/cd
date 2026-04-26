@@ -13,6 +13,19 @@ import {
 } from 'lucide-react';
 import { STATUS_META, formatDate, normalizeTrack } from '../lib/releases';
 
+const fixMojibakeFilename = (filename = '') => {
+  if (!/[ÐÑ]/.test(filename)) return filename;
+  try {
+    return decodeURIComponent(
+      Array.from(filename)
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join('')
+    );
+  } catch (error) {
+    return filename;
+  }
+};
+
 function AudioPlayer({ src }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
@@ -196,7 +209,7 @@ export default function ReleaseDetailsModal({
       const objectUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = objectUrl;
-      link.download = filename || url.split('/').pop() || 'download';
+      link.download = fixMojibakeFilename(filename || url.split('/').pop() || 'download');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

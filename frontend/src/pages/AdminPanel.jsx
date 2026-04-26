@@ -364,7 +364,7 @@ export default function AdminPanel() {
     try {
       await api.put(`/admin/users/${account.id}/set-role`, { role });
       await refreshUsersData();
-      showAdminMessage(role === 'moderator' ? 'Роль модератора выдана' : role === 'admin' ? 'Права администратора выданы' : 'Роль обновлена');
+      showAdminMessage(role === 'artist' ? 'Права сняты' : role === 'moderator' ? 'Роль модератора выдана' : role === 'admin' ? 'Права администратора выданы' : 'Роль обновлена');
     } catch (error) {
       showAdminMessage(error.response?.data?.error || 'Не удалось обновить роль');
     }
@@ -645,7 +645,7 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <section className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {filteredReleases.map((release) => {
                 const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                 return (
@@ -723,7 +723,7 @@ export default function AdminPanel() {
                     />
                   </div>
                 </div>
-                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <section className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {filteredMyReleases.length ? filteredMyReleases.map((release) => {
                     const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                     return (
@@ -1301,13 +1301,23 @@ export default function AdminPanel() {
                         <Shield size={16} />
                         Выдать модератора
                       </button>
-                    ) : null}
+                    ) : (
+                      <button type="button" onClick={() => updateUserRole(userModal.user, 'artist')} className="secondary-button w-full justify-center">
+                        <Shield size={16} />
+                        Снять модератора
+                      </button>
+                    )}
                     {userModal.user?.role !== 'admin' ? (
                       <button type="button" onClick={() => promoteUser(userModal.user)} className="secondary-button w-full justify-center">
                         <ShieldCheck size={16} />
                         Выдать админку
                       </button>
-                    ) : null}
+                    ) : (
+                      <button type="button" onClick={() => updateUserRole(userModal.user, 'artist')} className="secondary-button w-full justify-center">
+                        <ShieldCheck size={16} />
+                        Снять админку
+                      </button>
+                    )}
                     {userModal.user?.account_status === 'blocked' ? (
                       <button type="button" onClick={() => unblockUser(userModal.user)} className="primary-button w-full justify-center">
                         Разблокировать

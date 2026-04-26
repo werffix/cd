@@ -43,11 +43,17 @@
     @apply bg-white/20 text-white;
   }
 
-  @keyframes auroraDrift {
-    0% { transform: translate3d(-6%, 0, 0) scale(1); opacity: 0.22; }
-    50% { transform: translate3d(6%, -4%, 0) scale(1.08); opacity: 0.34; }
-    100% { transform: translate3d(-4%, 2%, 0) scale(1); opacity: 0.2; }
-  }
+	  @keyframes auroraDrift {
+	    0% { transform: translate3d(-6%, 0, 0) scale(1); opacity: 0.22; }
+	    50% { transform: translate3d(6%, -4%, 0) scale(1.08); opacity: 0.34; }
+	    100% { transform: translate3d(-4%, 2%, 0) scale(1); opacity: 0.2; }
+	  }
+
+	  @keyframes siteAuroraFlow {
+	    0% { background-position: 0% 50%, 100% 0%, 50% 100%; }
+	    50% { background-position: 100% 40%, 0% 30%, 40% 0%; }
+	    100% { background-position: 0% 50%, 100% 0%, 50% 100%; }
+	  }
 
   .lucide {
     fill: currentColor;
@@ -56,9 +62,16 @@
 }
 
 @layer components {
-  .app-shell {
-    @apply min-h-screen bg-transparent text-white;
-  }
+	  .app-shell {
+	    min-height: 100vh;
+	    color: white;
+	    background:
+	      radial-gradient(60% 48% at 18% 18%, rgba(255, 255, 255, 0.10), transparent 70%),
+	      radial-gradient(54% 46% at 82% 8%, rgba(255, 255, 255, 0.08), transparent 72%),
+	      linear-gradient(135deg, #040404 0%, #0a0a0a 42%, #111111 100%) !important;
+	    background-size: 180% 180%, 170% 170%, 100% 100%;
+	    animation: siteAuroraFlow 18s ease-in-out infinite;
+	  }
 
   .glass-card {
     @apply rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl;

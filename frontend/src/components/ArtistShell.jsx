@@ -71,7 +71,6 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
               );
             })}
           </div>
-          <div className="mx-3 mt-auto border-t border-zinc-800/70" />
         </aside>
 
         <div className="flex-1">
