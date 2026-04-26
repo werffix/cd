@@ -114,6 +114,7 @@ export default function ReleaseDetailsModal({
   onDelete,
   onEdit,
   onRequestUpc,
+  requestingUpc = false,
 }) {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -258,10 +259,10 @@ export default function ReleaseDetailsModal({
                   <button
                     type="button"
                     onClick={() => onRequestUpc?.(release)}
-                    disabled={Boolean(release.metadata?.upc_requested)}
+                    disabled={Boolean(release.metadata?.upc_requested) || requestingUpc}
                     className="secondary-button mt-3 w-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {release.metadata?.upc_requested ? 'Запрос отправлен' : 'Запрос UPC'}
+                    {requestingUpc ? 'Подождите' : (release.metadata?.upc_requested ? 'Запрос отправлен' : 'Запрос UPC')}
                   </button>
                 ) : null}
               </div>

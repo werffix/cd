@@ -695,8 +695,8 @@ export default function ReleaseFormPage() {
                       Требования к обложке
                     </button>
                   </div>
-                  <div className="flex flex-col gap-6 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-6 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex flex-1 min-h-[180px] flex-col justify-between text-left">
+                  <div className="flex flex-col gap-5 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-900/40 p-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="flex flex-1 min-h-[148px] flex-col justify-between text-left">
                       <div className="mb-2 flex flex-wrap items-center gap-4 text-zinc-300">
                         <span className="inline-flex items-center gap-2">
                           <Upload size={16} />
@@ -720,8 +720,8 @@ export default function ReleaseFormPage() {
                         {errors.cover_image ? <p className="mt-2 text-xs text-red-300">{errors.cover_image}</p> : null}
                       </div>
                     </div>
-                    <div className="flex items-start gap-6">
-                      <div className="h-28 w-28 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
+                    <div className="flex items-start justify-end lg:pl-8">
+                      <div className="h-24 w-24 overflow-hidden rounded-lg border border-zinc-800/60 bg-zinc-900/60">
                         {coverPreview ? (
                           <img src={coverPreview} alt="Preview" className="h-full w-full object-cover" />
                         ) : (

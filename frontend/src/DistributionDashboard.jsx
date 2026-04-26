@@ -17,6 +17,7 @@ export default function DistributionDashboard() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [requestingUpcId, setRequestingUpcId] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   const [profile, setProfile] = useState({
     name: user?.name || '',
@@ -99,18 +100,19 @@ export default function DistributionDashboard() {
 
   const handleRequestUpc = async (release) => {
     try {
+      setRequestingUpcId(release.id);
       await api.post(`/releases/${release.id}/request-upc`);
-      setSettingsMessage('Запрос UPC отправлен');
+      setSettingsMessage('UPC получен автоматически');
       setTimeout(() => setSettingsMessage(''), 1800);
-      fetchReleases();
-      setSelectedRelease((prev) => (
-        prev?.id === release.id
-          ? { ...prev, metadata: { ...(prev.metadata || {}), upc_requested: true } }
-          : prev
-      ));
+      const refreshed = await api.get('/releases');
+      const parsed = refreshed.data.map(parseRelease);
+      setReleases(parsed);
+      setSelectedRelease(parsed.find((item) => item.id === release.id) || null);
     } catch (error) {
       setSettingsMessage(error.response?.data?.error || 'Не удалось отправить запрос UPC');
       setTimeout(() => setSettingsMessage(''), 2200);
+    } finally {
+      setRequestingUpcId(null);
     }
   };
 
@@ -265,6 +267,7 @@ export default function DistributionDashboard() {
       <ReleaseDetailsModal
         release={selectedRelease}
         onClose={() => setSelectedRelease(null)}
+        requestingUpc={requestingUpcId === selectedRelease?.id}
         onRecall={async (release) => {
           try {
             await api.put(`/releases/${release.id}/status`, { status: 'revoked' });

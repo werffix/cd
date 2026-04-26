@@ -399,15 +399,26 @@ export default function AdminPanel() {
         <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
-              <div className="text-sm font-bold tracking-wide text-white">Меню</div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen((prev) => !prev)}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                >
+                  <Menu size={16} />
+                </button>
+                <div className="text-sm font-bold tracking-wide text-white">Меню</div>
+              </div>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((prev) => !prev)}
-              className={`flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 ${sidebarOpen ? '' : 'mx-auto'}`}
-            >
-              <Menu size={16} />
-            </button>
+            {!sidebarOpen ? (
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+              >
+                <Menu size={16} />
+              </button>
+            ) : null}
           </div>
           <div className="flex flex-col gap-3 p-3">
             {ADMIN_NAV_ITEMS.map(({ label, icon: Icon, key }) => {
@@ -419,7 +430,7 @@ export default function AdminPanel() {
                   type="button"
                   title={label}
                   onClick={() => setActiveSection(key)}
-                  className={`relative flex items-center rounded-2xl border transition ${
+                  className={`relative flex items-center rounded-2xl transition ${
                     sidebarOpen
                       ? `w-full gap-3 px-3 py-3 text-sm font-semibold ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-200 hover:bg-zinc-800/60'}`
                       : `h-12 w-12 justify-center self-center ${isActive ? 'bg-white text-black' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/60'}`
