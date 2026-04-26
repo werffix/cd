@@ -215,8 +215,26 @@ const extractFormAction = (html, marker) => {
 
 const toAbsoluteUrl = (value) => {
   if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  return new URL(value, DMB_BASE_URL).toString();
+  const normalizedValue = value.replace('/albums/view&', '/albums/view?');
+  if (/^https?:\/\//i.test(normalizedValue)) return normalizedValue;
+  return new URL(normalizedValue, DMB_BASE_URL).toString();
+};
+
+const normalizeDmbUpc = (value) => {
+  const raw = (value || '').trim();
+  if (!raw) return null;
+
+  const compact = raw.replace(/\s+/g, ' ');
+  if (/no\s+upc|not\s+issued|not\s+generated|not\s+available|yet/i.test(compact)) {
+    return null;
+  }
+
+  const digits = compact.replace(/[^\d]/g, '');
+  if (digits.length === 12 || digits.length === 13 || digits.length === 14) {
+    return digits;
+  }
+
+  return null;
 };
 
 const fetchUpcFromDmb = async ({ artist, title }) => {
@@ -315,12 +333,14 @@ const fetchUpcFromDmb = async ({ artist, title }) => {
   const detailResult = await fetchWithCookies(releaseUrl, { method: 'GET' }, cookie);
   const detailHtml = await detailResult.response.text();
   const upcMatch = detailHtml.match(/readonly-input-value barcode-readonly-value[^>]*>\s*([^<\s][^<]*)\s*</i);
-  const upc = upcMatch?.[1]?.trim() || null;
+  const upcRaw = upcMatch?.[1]?.trim() || null;
+  const upc = normalizeDmbUpc(upcRaw);
 
   console.log('[DMB][UPC] detail parsed', {
     status: detailResult.response.status,
     hasBarcodeBlock: /barcode-readonly-value/i.test(detailHtml),
     upcFound: Boolean(upc),
+    upcRaw,
     upcPreview: upc ? `${upc.slice(0, 4)}...${upc.slice(-4)}` : null,
   });
 
