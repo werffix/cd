@@ -150,6 +150,16 @@ const generatePassword = () => {
   return Array.from({ length: 9 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
 };
 
+const decodeUploadedName = (name = '') => {
+  if (!/[ÐÑ]/.test(name)) return name;
+  try {
+    const decoded = Buffer.from(name, 'latin1').toString('utf8');
+    return decoded.includes('�') ? name : decoded;
+  } catch (error) {
+    return name;
+  }
+};
+
 const serializeUser = (user) => ({
   id: user.id,
   login: user.login,
@@ -582,7 +592,7 @@ app.post('/api/releases/:releaseId/tracks', auth, (req, res) => {
       instrumental: instrumental === 'true',
       isrc: isrc,
       audio_file: audioUrl,
-      original_filename: req.file ? req.file.originalname : null,
+      original_filename: req.file ? decodeUploadedName(req.file.originalname) : null,
       mime_type: req.file ? req.file.mimetype : null
     };
 
