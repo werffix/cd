@@ -541,19 +541,55 @@ const submitReleaseToDmb = async (release, userId) => {
   }, cookie);
   const submitText = await submitResult.response.text();
   const dmbIssues = extractDmbIssues(submitText);
+  let parsedSubmit = null;
+  try {
+    parsedSubmit = JSON.parse(submitText);
+  } catch (error) {
+    parsedSubmit = null;
+  }
+  const committedAlbumId = parsedSubmit?.id || parsedSubmit?.album_id || parsedSubmit?.result?.id || dmbIssues.albumId || albumId;
   const success = submitResult.response.ok
     && !dmbIssues.issues.length
     && !dmbIssues.badParams.length
     && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
   log(success ? 'success' : 'warn', success ? 'DMB принял форму автоотгруза' : 'DMB вернул ответ с возможными ошибками', {
     status: submitResult.response.status,
-    dmbAlbumId: dmbIssues.albumId,
+    dmbAlbumId: committedAlbumId,
     issues: dmbIssues.issues,
     badParams: dmbIssues.badParams,
     issueSnippet: dmbIssues.issueSnippet,
     responsePreview: submitText.replace(/\s+/g, ' ').slice(0, 500),
   });
-  return { success, status: submitResult.response.status };
+  if (!success) return { success, status: submitResult.response.status };
+
+  const commitParams = new URLSearchParams(params);
+  if (committedAlbumId) {
+    commitParams.set('id', committedAlbumId);
+    commitParams.set('album_id', committedAlbumId);
+  }
+  commitParams.set('datapage', 'apply');
+  commitParams.set('editmode', 'yes');
+  commitParams.set('usecache', 'on');
+
+  const commitResult = await fetchWithCookies(toAbsoluteUrl('/albums/update/commit&ajax=1'), {
+    method: 'POST',
+    body: commitParams,
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  }, cookie);
+  const commitText = await commitResult.response.text();
+  let commitJson = null;
+  try {
+    commitJson = JSON.parse(commitText);
+  } catch (error) {
+    commitJson = null;
+  }
+  const commitOk = commitResult.response.ok && commitJson?.status === 'ok';
+  log(commitOk ? 'success' : 'warn', commitOk ? 'Релиз сохранён в DMB финальной кнопкой Применить' : 'Финальное сохранение DMB вернуло предупреждение', {
+    status: commitResult.response.status,
+    dmbAlbumId: committedAlbumId,
+    response: commitJson || commitText.replace(/\s+/g, ' ').slice(0, 500),
+  });
+  return { success: commitOk, status: commitResult.response.status };
 };
 
 const fetchUpcFromDmb = async ({ artist, title }) => {
