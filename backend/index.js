@@ -460,8 +460,9 @@ const submitReleaseToDmb = async (release, userId) => {
   cookie = insertPage.cookie;
   const insertHtml = await insertPage.response.text();
   const formAction = toAbsoluteUrl(extractFormAction(insertHtml, 'name="title"') || '/albums/insert');
+  const submitAction = toAbsoluteUrl('/albums/insert/apply/&ajax=1');
   const albumId = insertHtml.match(/\bid="album_id"\s+value="([^"]+)"/i)?.[1] || '';
-  log('info', 'Форма создания релиза DMB открыта', { status: insertPage.response.status, formAction, albumId });
+  log('info', 'Форма создания релиза DMB открыта', { status: insertPage.response.status, formAction, submitAction, albumId });
 
   const params = extractAllInputs(insertHtml);
   const language = detectDmbLanguage(release.title);
@@ -493,6 +494,7 @@ const submitReleaseToDmb = async (release, userId) => {
   params.set('line0publishers', 'Label Control');
   params.set('in_apply_mode', 'on');
   params.set('cmd', 'apply');
+  params.set('is_final_submit', 'true');
 
   log('info', 'Данные формы подготовлены', {
     language,
@@ -502,6 +504,10 @@ const submitReleaseToDmb = async (release, userId) => {
     artistsCount: artists.length,
     contributorsCount: contributors.size,
     upcMode: metadata.upc ? 'manual' : 'SMW',
+    sentFields: ['title', 'album_note', 'language', 'barcode', 'barcode_skip', 'catalog_number', 'label', 'album_type', 'genre_common_genre', 'primary_artist_values_count', 'contributors_values_count', 'is_final_submit'].reduce((acc, key) => {
+      acc[key] = params.get(key);
+      return acc;
+    }, {}),
   });
 
   if (release.cover_url && albumId) {
@@ -525,7 +531,7 @@ const submitReleaseToDmb = async (release, userId) => {
     }
   }
 
-  const submitResult = await fetchWithCookies(formAction, {
+  const submitResult = await fetchWithCookies(submitAction, {
     method: 'POST',
     body: params,
     headers: {
