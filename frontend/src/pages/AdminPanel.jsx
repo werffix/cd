@@ -21,6 +21,41 @@ const ROLE_LABELS = {
   admin: 'Админ',
 };
 
+const sanitizeFilename = (value = '') =>
+  String(value)
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildDmbLogsText = (release, logs = []) => {
+  const header = [
+    'CDCULT DMB Logs',
+    `Release: ${release?.title || 'Untitled'}`,
+    `Artists: ${release?.artists || release?.artist_login || 'Unknown'}`,
+    `Exported: ${new Date().toLocaleString('ru-RU')}`,
+    '',
+  ];
+
+  const body = logs.flatMap((entry, index) => {
+    const lines = [
+      `#${index + 1}`,
+      `Time: ${formatDateTime(entry.created_at)}`,
+      `Level: ${entry.level || 'info'}`,
+      `Message: ${entry.message || ''}`,
+    ];
+
+    if (entry.details && Object.keys(entry.details).length) {
+      lines.push('Details:');
+      lines.push(JSON.stringify(entry.details, null, 2));
+    }
+
+    lines.push('');
+    return lines;
+  });
+
+  return [...header, ...body].join('\n');
+};
+
 export default function AdminPanel() {
   const { user, logout, updateUser } = useAuth();
   const [releases, setReleases] = useState([]);
@@ -400,6 +435,21 @@ export default function AdminPanel() {
         logs: [{ id: 'error', level: 'error', message: error.response?.data?.error || 'Не удалось загрузить логи', created_at: new Date().toISOString() }],
       });
     }
+  };
+
+  const downloadDmbLogs = () => {
+    if (!dmbLogsModal.release || !dmbLogsModal.logs.length) return;
+    const text = buildDmbLogsText(dmbLogsModal.release, dmbLogsModal.logs);
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const releaseTitle = sanitizeFilename(dmbLogsModal.release.title || 'release');
+    link.href = url;
+    link.download = `${releaseTitle || 'release'}-dmb-logs.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   const runDmbExport = async (release) => {
@@ -1491,6 +1541,9 @@ export default function AdminPanel() {
               <div className="flex gap-2">
                 <button type="button" onClick={() => openDmbLogs(dmbLogsModal.release)} className="secondary-button">
                   Обновить
+                </button>
+                <button type="button" onClick={downloadDmbLogs} className="secondary-button" disabled={!dmbLogsModal.logs.length || dmbLogsModal.loading}>
+                  Скачать TXT
                 </button>
                 <button type="button" onClick={() => setDmbLogsModal({ open: false, release: null, logs: [], loading: false })} className="secondary-button">
                   Закрыть
