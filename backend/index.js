@@ -600,13 +600,23 @@ const submitReleaseToDmb = async (release, userId) => {
   tracks.forEach((track) => {
     splitPeople(track.music_authors || track.musicAuthors).forEach((name) => {
       if (!contributors.has(name)) contributors.set(name, new Set());
-      contributors.get(name).add('Композитор');
+      contributors.get(name).add('composer');
     });
     splitPeople(track.lyrics_authors || track.lyricsAuthors).forEach((name) => {
       if (!contributors.has(name)) contributors.set(name, new Set());
-      contributors.get(name).add('Автор слов');
+      contributors.get(name).add('lyricist');
     });
   });
+  if (!Array.from(contributors.values()).some((roles) => roles.has('composer'))) {
+    const fallbackComposer = splitPeople(tracks[0]?.music_authors || tracks[0]?.musicAuthors)[0]
+      || artists[0]
+      || release.artist_login
+      || release.artists;
+    if (fallbackComposer) {
+      if (!contributors.has(fallbackComposer)) contributors.set(fallbackComposer, new Set());
+      contributors.get(fallbackComposer).add('composer');
+    }
+  }
 
   log('info', 'Автоотгруз DMB запущен', { title: release.title, artists: release.artists });
   let cookie = await loginToDmb(log);
@@ -700,7 +710,7 @@ const submitReleaseToDmb = async (release, userId) => {
       coverUploadForm.set('id', params.get('id') || '0');
       coverUploadForm.set('album_pic_temp_image', params.get('album_pic_temp_image__') || '');
       coverUploadForm.set('album_pic_temp_thumb', params.get('album_pic_temp_thumb__') || '');
-      coverUploadForm.set('album_pic', new Blob([fs.readFileSync(coverPath)]), path.basename(coverPath));
+      coverUploadForm.set('album_pic', new Blob([fs.readFileSync(coverPath)], { type: 'image/jpeg' }), path.basename(coverPath));
       const coverUploadResult = await fetchWithCookies(toAbsoluteUrl('/albums/insert/upload/&ajax=1&usecache=on&editmode=yes'), {
         method: 'POST',
         body: coverUploadForm,
@@ -766,7 +776,7 @@ const submitReleaseToDmb = async (release, userId) => {
     if (fs.existsSync(coverPath)) {
       const coverForm = new FormData();
       const coverBuffer = fs.readFileSync(coverPath);
-      coverForm.set('album_pic', new Blob([coverBuffer]), path.basename(coverPath));
+      coverForm.set('album_pic', new Blob([coverBuffer], { type: 'image/jpeg' }), path.basename(coverPath));
       const coverUpload = await fetchWithCookies(`${DMB_BASE_URL}/albums/insert?usecache=on&editmode=yes&id=${encodeURIComponent(committedAlbumId)}`, {
         method: 'POST',
         body: coverForm,
