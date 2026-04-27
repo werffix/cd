@@ -722,6 +722,12 @@ const submitReleaseToDmb = async (release, userId) => {
       acc[key] = params.get(key);
       return acc;
     }, {}),
+    coverTemp: {
+      album_pic_temp_image__: params.get('album_pic_temp_image__') || '',
+      album_pic_temp_thumb__: params.get('album_pic_temp_thumb__') || '',
+      pic_temp_image: params.get('pic_temp_image') || '',
+      pic_temp_thumb: params.get('pic_temp_thumb') || '',
+    },
   });
 
   if (release.cover_url) {
@@ -746,10 +752,12 @@ const submitReleaseToDmb = async (release, userId) => {
         coverUploadJson = null;
       }
       if (coverUploadJson?.status === 'ok') {
-        const tempImage = coverUploadJson.OLD_album_pic_temp_image || coverUploadJson.album_pic_temp_image;
-        const tempThumb = coverUploadJson.OLD_album_pic_temp_thumb || coverUploadJson.album_pic_temp_thumb;
+        const tempImage = coverUploadJson.album_pic_temp_image || coverUploadJson.album_pic_full_image || '';
+        const tempThumb = coverUploadJson.album_pic_temp_thumb || coverUploadJson.album_pic_preview_image || '';
         if (tempImage) params.set('album_pic_temp_image__', tempImage);
         if (tempThumb) params.set('album_pic_temp_thumb__', tempThumb);
+        if (tempImage) params.set('pic_temp_image', tempImage);
+        if (tempThumb) params.set('pic_temp_thumb', tempThumb);
         if (coverUploadJson.album_pic_temp_original) params.set('album_pic_temp_original__', coverUploadJson.album_pic_temp_original);
       }
       log(coverUploadJson?.status === 'ok' ? 'info' : 'warn', coverUploadJson?.status === 'ok' ? 'Обложка загружена в DMB temp-поля' : 'Не удалось загрузить обложку в DMB temp-поля', {
@@ -757,6 +765,8 @@ const submitReleaseToDmb = async (release, userId) => {
         uploadPicId: uploadPicId || params.get('id') || '0',
         savedTempImage: params.get('album_pic_temp_image__') || '',
         savedTempThumb: params.get('album_pic_temp_thumb__') || '',
+        savedPicTempImage: params.get('pic_temp_image') || '',
+        savedPicTempThumb: params.get('pic_temp_thumb') || '',
         responseJson: coverUploadJson,
         responsePreview: coverUploadText.replace(/\s+/g, ' ').slice(0, 400),
       });
@@ -870,6 +880,10 @@ const submitReleaseToDmb = async (release, userId) => {
   }
   if (!committedAlbumId) {
     const insertApplyParams = extractAllInputs(insertApplyHtml || '');
+    if (params.get('album_pic_temp_image__')) insertApplyParams.set('album_pic_temp_image__', params.get('album_pic_temp_image__'));
+    if (params.get('album_pic_temp_thumb__')) insertApplyParams.set('album_pic_temp_thumb__', params.get('album_pic_temp_thumb__'));
+    if (params.get('pic_temp_image')) insertApplyParams.set('pic_temp_image', params.get('pic_temp_image'));
+    if (params.get('pic_temp_thumb')) insertApplyParams.set('pic_temp_thumb', params.get('pic_temp_thumb'));
     insertApplyParams.set('ajax', '1');
     insertApplyParams.set('datapage', 'apply');
     insertApplyParams.set('subform', 'album-apply');
@@ -899,6 +913,12 @@ const submitReleaseToDmb = async (release, userId) => {
       status: insertApplyResult.response.status,
       submitUrl: insertApplySubmitUrl,
       dmbAlbumId: committedAlbumId,
+      coverTemp: {
+        album_pic_temp_image__: insertApplyParams.get('album_pic_temp_image__') || '',
+        album_pic_temp_thumb__: insertApplyParams.get('album_pic_temp_thumb__') || '',
+        pic_temp_image: insertApplyParams.get('pic_temp_image') || '',
+        pic_temp_thumb: insertApplyParams.get('pic_temp_thumb') || '',
+      },
       responseJson: insertApplyJson,
       responsePreview: insertApplyText.replace(/\s+/g, ' ').slice(0, 500),
     });
