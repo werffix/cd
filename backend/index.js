@@ -562,12 +562,18 @@ const submitReleaseToDmb = async (release, userId) => {
   const language = detectDmbLanguage(release.title);
   const genre = String(release.genre || metadata.main_genre || '').split('/')[0].trim();
   const genreValue = dmbOptionValue(insertHtml, genre);
+  const labelValue = params.get('label')
+    || dmbOptionValue(insertHtml, labelName)
+    || dmbOptionValue(insertHtml, 'CDCULT RECORDS')
+    || '';
+  const displayArtist = release.artists || artists.join(', ');
   const currentYear = String(new Date().getFullYear());
 
   params.set('subform', 'album-main');
   params.set('title', release.title || '');
   params.set('album_note', release.subtitle || '');
   params.set('language', language);
+  params.set('display_artist', displayArtist);
   params.set('barcode', metadata.upc || '');
   params.set('old_barcode', metadata.upc || '');
   if (!metadata.upc) params.set('barcode_skip', 'on');
@@ -576,8 +582,12 @@ const submitReleaseToDmb = async (release, userId) => {
   params.set('phonograph_info_name', labelName);
   params.set('copyright_year', currentYear);
   params.set('copyright_name', labelName);
+  if (labelValue) params.set('label', labelValue);
   params.set('album_type', dmbAlbumTypeValue(release.release_type));
-  if (genreValue) params.set('genre_common_genre', genreValue);
+  if (genreValue) {
+    params.set('genre_common_genre', genreValue);
+    params.set('genre_common', genreValue);
+  }
   params.set('genre_common_subgenre', '');
   setDmbMultiField(params, 'primary_artist', artists.length ? artists : [release.artists || release.artist_login || 'Artist'], 'role-34');
   if (contributors.size) {
@@ -594,11 +604,13 @@ const submitReleaseToDmb = async (release, userId) => {
     language,
     genre,
     genreValue,
+    labelValue,
+    displayArtist,
     albumType: release.release_type,
     artistsCount: artists.length,
     contributorsCount: contributors.size,
     upcMode: metadata.upc ? 'manual' : 'SMW',
-    sentFields: ['title', 'album_note', 'language', 'barcode', 'barcode_skip', 'catalog_number', 'album_type', 'genre_common_genre', 'primary_artist_values_count', 'contributors_values_count', 'datapage'].reduce((acc, key) => {
+    sentFields: ['title', 'album_note', 'language', 'display_artist', 'label', 'barcode', 'barcode_skip', 'catalog_number', 'album_type', 'genre_common', 'genre_common_genre', 'primary_artist_values_count', 'contributors_values_count', 'datapage'].reduce((acc, key) => {
       acc[key] = params.get(key);
       return acc;
     }, {}),
