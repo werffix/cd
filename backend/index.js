@@ -469,13 +469,16 @@ const findDmbReleaseByArtistAndTitle = async ({ cookie, artist, title, log = () 
   const searchHtml = await searchResult.response.text();
   const releaseLinkMatch = searchHtml.match(/<a[^>]+title="Open release for view"[^>]+href="([^"]+)"|<a[^>]+href="([^"]+)"[^>]+title="Open release for view"/i);
   const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1] || releaseLinkMatch?.[2]);
-  const releaseId = releaseUrl.match(/[?&]id=(\d+)/i)?.[1] || searchHtml.match(/\bid="album_id"\s+value="(\d+)"/i)?.[1] || null;
+  const releaseId = releaseUrl?.match(/[?&]id=(\d+)/i)?.[1]
+    || searchHtml.match(/\bid="album_id"\s+value="(\d+)"/i)?.[1]
+    || null;
 
   log(releaseUrl ? 'info' : 'warn', releaseUrl ? 'DMB релиз найден через список' : 'DMB релиз не найден через список', {
     status: searchResult.response.status,
     artist: normalizedArtist,
     title: normalizedTitle,
     searchUrl: searchUrl.toString(),
+    hasOpenReleaseLink: /Open release for view/i.test(searchHtml),
     releaseUrl,
     releaseId,
     responsePreview: searchHtml.replace(/\s+/g, ' ').slice(0, 320),
