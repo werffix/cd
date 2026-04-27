@@ -584,6 +584,8 @@ const extractDmbUploadPicId = (html = '') => (
   || null
 );
 
+const buildDmbApplySubmitUrl = (action) => `${String(action || '').replace(/\/+$/, '')}/apply/&ajax=1`;
+
 const fetchDmbReleasePayload = (releaseId) => {
   const release = db.prepare(`
     SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
@@ -831,6 +833,10 @@ const submitReleaseToDmb = async (release, userId) => {
     });
     committedAlbumId = refreshedInsertIds.committedAlbumId || null;
   }
+  let insertApplyAction = null;
+  let insertApplyHtml = null;
+  let didInsertApplySubmit = false;
+  let insertApplyStatus = null;
   if (!committedAlbumId) {
     const insertApplyPageBody = new URLSearchParams();
     insertApplyPageBody.set('ajax', '1');
@@ -849,8 +855,11 @@ const submitReleaseToDmb = async (release, userId) => {
     cookie = applyTabResult.cookie;
     const applyTabHtml = await applyTabResult.response.text();
     const applyTabIds = extractDmbFormIds(applyTabHtml);
+    insertApplyAction = toAbsoluteUrl(extractFormAction(applyTabHtml, 'id="album-apply"') || '/albums/insert');
+    insertApplyHtml = applyTabHtml;
     log(applyTabIds.committedAlbumId ? 'info' : 'warn', 'Открыта вкладка Применить в режиме insert', {
       status: applyTabResult.response.status,
+      applyAction: insertApplyAction,
       formRecordId: applyTabIds.recordId,
       formAlbumHiddenId: applyTabIds.albumHiddenId,
       formAaRecId: applyTabIds.aaRecId,
@@ -858,6 +867,55 @@ const submitReleaseToDmb = async (release, userId) => {
       responsePreview: applyTabHtml.replace(/\s+/g, ' ').slice(0, 400),
     });
     committedAlbumId = applyTabIds.committedAlbumId || null;
+  }
+  if (!committedAlbumId) {
+    const insertApplyParams = extractAllInputs(insertApplyHtml || '');
+    insertApplyParams.set('ajax', '1');
+    insertApplyParams.set('datapage', 'apply');
+    insertApplyParams.set('subform', 'album-apply');
+    insertApplyParams.set('in_apply_mode', 'on');
+    insertApplyParams.set('is_final_submit', 'true');
+    insertApplyParams.set('apply_submit', 'OK');
+    const insertApplySubmitUrl = buildDmbApplySubmitUrl(insertApplyAction || '/albums/insert');
+    const insertApplyResult = await fetchWithCookies(insertApplySubmitUrl, {
+      method: 'POST',
+      body: insertApplyParams,
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    }, cookie);
+    didInsertApplySubmit = true;
+    insertApplyStatus = insertApplyResult.response.status;
+    cookie = insertApplyResult.cookie;
+    const insertApplyText = await insertApplyResult.response.text();
+    let insertApplyJson = null;
+    try {
+      insertApplyJson = JSON.parse(insertApplyText);
+    } catch (error) {
+      insertApplyJson = null;
+    }
+    committedAlbumId = findDmbAlbumId(insertApplyJson?.new_id)
+      || findDmbAlbumId(insertApplyJson?.album_id)
+      || findDmbAlbumId(insertApplyJson);
+    log(committedAlbumId ? 'success' : 'warn', committedAlbumId ? 'Нажата кнопка ОК для нового релиза DMB' : 'DMB принял ОК для нового релиза, но не вернул ID', {
+      status: insertApplyResult.response.status,
+      submitUrl: insertApplySubmitUrl,
+      dmbAlbumId: committedAlbumId,
+      responseJson: insertApplyJson,
+      responsePreview: insertApplyText.replace(/\s+/g, ' ').slice(0, 500),
+    });
+  }
+  if (!committedAlbumId) {
+    const refreshedInsert = await fetchWithCookies(insertUrl, { method: 'GET' }, cookie);
+    cookie = refreshedInsert.cookie;
+    const refreshedInsertHtml = await refreshedInsert.response.text();
+    const refreshedInsertIds = extractDmbFormIds(refreshedInsertHtml);
+    log(refreshedInsertIds.committedAlbumId ? 'info' : 'warn', 'Повторно открыта форма insert после кнопки ОК', {
+      status: refreshedInsert.response.status,
+      formRecordId: refreshedInsertIds.recordId,
+      formAlbumHiddenId: refreshedInsertIds.albumHiddenId,
+      formAaRecId: refreshedInsertIds.aaRecId,
+      dmbAlbumId: refreshedInsertIds.committedAlbumId,
+    });
+    committedAlbumId = refreshedInsertIds.committedAlbumId || null;
   }
   if (!committedAlbumId) {
     const foundRelease = await findDmbReleaseByArtistAndTitle({
@@ -868,6 +926,14 @@ const submitReleaseToDmb = async (release, userId) => {
     });
     cookie = foundRelease?.cookie || cookie;
     committedAlbumId = foundRelease?.releaseId || null;
+  }
+  if (didInsertApplySubmit && committedAlbumId) {
+    log('success', 'Новый релиз DMB сохранён кнопкой ОК', {
+      dmbAlbumId: committedAlbumId,
+      title: release.title,
+      artists: release.artists,
+    });
+    return { success: true, status: insertApplyStatus || saveMainResult.response.status };
   }
   if (!committedAlbumId) {
     log('warn', 'DMB принял данные, но не вернул ID релиза и не нашёл его в списке для нажатия ОК', {
