@@ -586,6 +586,7 @@ const submitReleaseToDmb = async (release, userId) => {
   params.set('publishers_values_count', '1');
   params.set('publishers_values', '0');
   params.set('line0publishers', 'Label Control');
+  params.set('ajax', '1');
   params.set('in_apply_mode', 'on');
   params.set('datapage', 'main');
 
@@ -738,6 +739,7 @@ const submitReleaseToDmb = async (release, userId) => {
   const applyParams = extractAllInputs(applyPageHtml);
   applyParams.set('id', committedAlbumId);
   applyParams.set('album_id', committedAlbumId);
+  applyParams.set('ajax', '1');
   applyParams.set('datapage', 'apply');
   applyParams.set('subform', 'album-apply');
   applyParams.set('editmode', 'yes');
