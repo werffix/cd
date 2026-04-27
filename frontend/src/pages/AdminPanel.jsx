@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Ban, BadgeCheck, CheckCheck, ChevronDown, Disc3, FolderOpen, KeyRound, Menu, MessageSquare, Search, Send, Shield, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
+import { Ban, BadgeCheck, CheckCheck, ChevronDown, Disc3, FileText, FolderOpen, KeyRound, Menu, MessageSquare, Rocket, Search, Send, Shield, ShieldCheck, Ticket, Trash2, User2, Users, XCircle } from 'lucide-react';
 import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease, resolveAssetUrl } from '../lib/releases';
@@ -54,6 +54,8 @@ export default function AdminPanel() {
   const [labelForm, setLabelForm] = useState({ userQuery: '', labelName: '' });
   const [fileFolders, setFileFolders] = useState([]);
   const [activeFileFolder, setActiveFileFolder] = useState('covers');
+  const [dmbExportingId, setDmbExportingId] = useState(null);
+  const [dmbLogsModal, setDmbLogsModal] = useState({ open: false, release: null, logs: [], loading: false });
 
   const navItems = useMemo(() => {
     if (user?.role === 'moderator') {
@@ -384,6 +386,37 @@ export default function AdminPanel() {
     showAdminMessage(`Удалено файлов: ${res.data.deleted ?? 0}`);
   };
 
+  const openDmbLogs = async (release) => {
+    if (!release) return;
+    setDmbLogsModal({ open: true, release, logs: [], loading: true });
+    try {
+      const res = await api.get(`/admin/releases/${release.id}/dmb-logs`);
+      setDmbLogsModal({ open: true, release, logs: res.data, loading: false });
+    } catch (error) {
+      setDmbLogsModal({
+        open: true,
+        release,
+        loading: false,
+        logs: [{ id: 'error', level: 'error', message: error.response?.data?.error || 'Не удалось загрузить логи', created_at: new Date().toISOString() }],
+      });
+    }
+  };
+
+  const runDmbExport = async (release) => {
+    if (!release) return;
+    setDmbExportingId(release.id);
+    showAdminMessage('Автоотгруз DMB запущен');
+    try {
+      const res = await api.post(`/admin/releases/${release.id}/dmb-export`);
+      showAdminMessage(res.data?.message || 'Автоотгруз DMB выполнен');
+    } catch (error) {
+      showAdminMessage(error.response?.data?.error || 'Не удалось выполнить автоотгруз DMB');
+    } finally {
+      setDmbExportingId(null);
+      await openDmbLogs(release);
+    }
+  };
+
   const filteredReleases = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return releases.filter((release) => {
@@ -482,6 +515,23 @@ export default function AdminPanel() {
             Отклонить
           </button>
         ) : null}
+        <button
+          type="button"
+          onClick={() => runDmbExport(release)}
+          disabled={dmbExportingId === release.id}
+          className={`secondary-button ${baseClass} disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          <Rocket size={15} />
+          {dmbExportingId === release.id ? 'Отгружаем...' : 'Автоотгруз DMB'}
+        </button>
+        <button
+          type="button"
+          onClick={() => openDmbLogs(release)}
+          className={`secondary-button ${baseClass}`}
+        >
+          <FileText size={15} />
+          Логи DMB
+        </button>
       </>
     );
   };
@@ -1426,6 +1476,52 @@ export default function AdminPanel() {
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {dmbLogsModal.open ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setDmbLogsModal({ open: false, release: null, logs: [], loading: false })}>
+          <div className="w-full max-w-4xl rounded-3xl border border-zinc-800 bg-[#121212] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800 pb-4">
+              <div>
+                <h3 className="text-2xl font-bold text-white">Логи DMB</h3>
+                <p className="mt-1 text-sm text-zinc-400">{dmbLogsModal.release?.title || 'Релиз'}</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => openDmbLogs(dmbLogsModal.release)} className="secondary-button">
+                  Обновить
+                </button>
+                <button type="button" onClick={() => setDmbLogsModal({ open: false, release: null, logs: [], loading: false })} className="secondary-button">
+                  Закрыть
+                </button>
+              </div>
+            </div>
+            <div className="mt-5 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+              {dmbLogsModal.loading ? (
+                <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 text-sm text-zinc-400">Загружаем логи...</div>
+              ) : dmbLogsModal.logs.length ? dmbLogsModal.logs.map((entry) => (
+                <div key={entry.id} className={`rounded-2xl border p-4 ${
+                  entry.level === 'error'
+                    ? 'border-red-500/25 bg-red-500/10'
+                    : entry.level === 'success'
+                      ? 'border-emerald-500/25 bg-emerald-500/10'
+                      : 'border-zinc-800/60 bg-zinc-900/40'
+                }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{entry.message}</p>
+                    <span className="text-xs text-zinc-500">{formatDateTime(entry.created_at)}</span>
+                  </div>
+                  {entry.details ? (
+                    <pre className="mt-3 max-h-44 overflow-auto rounded-xl bg-black/40 p-3 text-xs leading-5 text-zinc-300">
+                      {JSON.stringify(entry.details, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 text-sm text-zinc-400">Логов по этому релизу пока нет.</div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
