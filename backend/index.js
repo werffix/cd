@@ -477,6 +477,16 @@ const setDmbMultiField = (params, field, values, roleValue) => {
   });
 };
 
+const setDmbContributorFields = (params, contributorsMap) => {
+  const entries = Array.from(contributorsMap.entries());
+  params.set('contributors_values_count', String(entries.length));
+  params.set('contributors_values', entries.map((_, index) => index).join(','));
+  entries.forEach(([name, roles], index) => {
+    params.set(`line${index}_contributors`, name);
+    params.set(`line${index}_contributors_roles`, Array.from(roles).join(','));
+  });
+};
+
 const loginToDmb = async (log = () => {}) => {
   let cookie = '';
   const loginPage = await fetchWithCookies(DMB_BASE_URL, { method: 'GET' }, cookie);
@@ -588,8 +598,14 @@ const submitReleaseToDmb = async (release, userId) => {
   const artists = splitPeople(release.artists);
   const contributors = new Map();
   tracks.forEach((track) => {
-    splitPeople(track.music_authors || track.musicAuthors).forEach((name) => contributors.set(name, 'Композитор, Продюсер'));
-    splitPeople(track.lyrics_authors || track.lyricsAuthors).forEach((name) => contributors.set(name, 'Автор слов'));
+    splitPeople(track.music_authors || track.musicAuthors).forEach((name) => {
+      if (!contributors.has(name)) contributors.set(name, new Set());
+      contributors.get(name).add('Композитор');
+    });
+    splitPeople(track.lyrics_authors || track.lyricsAuthors).forEach((name) => {
+      if (!contributors.has(name)) contributors.set(name, new Set());
+      contributors.get(name).add('Автор слов');
+    });
   });
 
   log('info', 'Автоотгруз DMB запущен', { title: release.title, artists: release.artists });
@@ -651,7 +667,7 @@ const submitReleaseToDmb = async (release, userId) => {
   params.set('genre_common_subgenre', '');
   setDmbMultiField(params, 'primary_artist', artists.length ? artists : [release.artists || release.artist_login || 'Artist'], 'role-34');
   if (contributors.size) {
-    setDmbMultiField(params, 'contributors', Array.from(contributors.keys()), Array.from(contributors.values()).join(', '));
+    setDmbContributorFields(params, contributors);
   }
   params.set('publishers_values_count', '1');
   params.set('publishers_values', '0');
@@ -675,6 +691,42 @@ const submitReleaseToDmb = async (release, userId) => {
       return acc;
     }, {}),
   });
+
+  if (release.cover_url) {
+    const coverPath = path.join(__dirname, release.cover_url.replace(/^\/+/, ''));
+    if (fs.existsSync(coverPath)) {
+      const coverUploadForm = new FormData();
+      coverUploadForm.set('ajax', '1');
+      coverUploadForm.set('id', params.get('id') || '0');
+      coverUploadForm.set('album_pic_temp_image', params.get('album_pic_temp_image__') || '');
+      coverUploadForm.set('album_pic_temp_thumb', params.get('album_pic_temp_thumb__') || '');
+      coverUploadForm.set('album_pic', new Blob([fs.readFileSync(coverPath)]), path.basename(coverPath));
+      const coverUploadResult = await fetchWithCookies(toAbsoluteUrl('/albums/insert/upload/&ajax=1&usecache=on&editmode=yes'), {
+        method: 'POST',
+        body: coverUploadForm,
+      }, cookie);
+      cookie = coverUploadResult.cookie;
+      const coverUploadText = await coverUploadResult.response.text();
+      let coverUploadJson = null;
+      try {
+        coverUploadJson = JSON.parse(coverUploadText);
+      } catch (error) {
+        coverUploadJson = null;
+      }
+      if (coverUploadJson?.status === 'ok') {
+        if (coverUploadJson.album_pic_temp_image) params.set('album_pic_temp_image__', coverUploadJson.album_pic_temp_image);
+        if (coverUploadJson.album_pic_temp_thumb) params.set('album_pic_temp_thumb__', coverUploadJson.album_pic_temp_thumb);
+        if (coverUploadJson.album_pic_temp_original) params.set('album_pic_temp_original__', coverUploadJson.album_pic_temp_original);
+      }
+      log(coverUploadJson?.status === 'ok' ? 'info' : 'warn', coverUploadJson?.status === 'ok' ? 'Обложка загружена в DMB temp-поля' : 'Не удалось загрузить обложку в DMB temp-поля', {
+        status: coverUploadResult.response.status,
+        responseJson: coverUploadJson,
+        responsePreview: coverUploadText.replace(/\s+/g, ' ').slice(0, 400),
+      });
+    } else {
+      log('warn', 'Файл обложки не найден на сервере', { coverPath });
+    }
+  }
 
   const saveMainResult = await fetchWithCookies(saveMainPageAction, {
     method: 'POST',
