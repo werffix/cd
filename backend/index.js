@@ -788,7 +788,7 @@ const submitReleaseToDmb = async (release, userId) => {
       title: release.title,
       artists: release.artists,
     });
-    return { success: false, status: submitResult.response.status };
+    return { success: false, status: saveMainResult.response.status };
   }
 
   const applyPageBody = new URLSearchParams();
