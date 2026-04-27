@@ -530,10 +530,24 @@ const submitReleaseToDmb = async (release, userId) => {
   const insertHtml = await insertPage.response.text();
   const formAction = toAbsoluteUrl(extractFormAction(insertHtml, 'name="title"') || '/albums/insert');
   const submitAction = toAbsoluteUrl('/albums/insert/apply/&ajax=1');
-  const albumId = insertHtml.match(/\bid="album_id"\s+value="([^"]+)"/i)?.[1] || '';
-  log('info', 'Форма создания релиза DMB открыта', { status: insertPage.response.status, formAction, submitAction, albumId });
-
   const params = extractAllInputs(insertHtml);
+  const formAlbumId = findDmbAlbumId(params.get('album_id'))
+    || findDmbAlbumId(params.get('id'))
+    || findDmbAlbumId(insertHtml.match(/\bid="album_id"[^>]*\bvalue="([^"]+)"/i)?.[1])
+    || findDmbAlbumId(insertHtml.match(/\bid="id"[^>]*\bvalue="([^"]+)"/i)?.[1])
+    || null;
+  const formRecordId = params.get('id') || '';
+  const formAlbumHiddenId = params.get('album_id') || '';
+  const formAaRecId = params.get('aa_rec_id') || '';
+  log('info', 'Форма создания релиза DMB открыта', {
+    status: insertPage.response.status,
+    formAction,
+    submitAction,
+    formRecordId,
+    formAlbumHiddenId,
+    formAaRecId,
+    dmbAlbumId: formAlbumId,
+  });
   const language = detectDmbLanguage(release.title);
   const genre = String(release.genre || metadata.main_genre || '').split('/')[0].trim();
   const genreValue = dmbOptionValue(insertHtml, genre);
@@ -579,13 +593,13 @@ const submitReleaseToDmb = async (release, userId) => {
     }, {}),
   });
 
-  if (release.cover_url && albumId) {
+  if (release.cover_url && formAlbumId) {
     const coverPath = path.join(__dirname, release.cover_url.replace(/^\/+/, ''));
     if (fs.existsSync(coverPath)) {
       const coverForm = new FormData();
       const coverBuffer = fs.readFileSync(coverPath);
       coverForm.set('album_pic', new Blob([coverBuffer]), path.basename(coverPath));
-      const coverUpload = await fetchWithCookies(`${DMB_BASE_URL}/albums/insert?usecache=on&editmode=yes&id=${encodeURIComponent(albumId)}`, {
+      const coverUpload = await fetchWithCookies(`${DMB_BASE_URL}/albums/insert?usecache=on&editmode=yes&id=${encodeURIComponent(formAlbumId)}`, {
         method: 'POST',
         body: coverForm,
       }, cookie);
@@ -620,7 +634,9 @@ const submitReleaseToDmb = async (release, userId) => {
     && !dmbIssues.issues.length
     && !dmbIssues.badParams.length
     && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
-  let committedAlbumId = findDmbAlbumId(parsedSubmit) || findDmbAlbumId(dmbIssues.albumId) || findDmbAlbumId(albumId);
+  let committedAlbumId = findDmbAlbumId(parsedSubmit)
+    || findDmbAlbumId(dmbIssues.albumId)
+    || formAlbumId;
   log(success ? 'success' : 'warn', success ? 'DMB принял форму автоотгруза' : 'DMB вернул ответ с возможными ошибками', {
     status: submitResult.response.status,
     dmbAlbumId: committedAlbumId,
