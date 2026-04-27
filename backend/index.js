@@ -343,6 +343,63 @@ const extractAllInputs = (html) => {
   return params;
 };
 
+const DMB_LABEL_IDS = {
+  'CDCULT RECORDS': '33062',
+};
+
+const DMB_GENRE_IDS = {
+  Alternative: '217',
+  'Big Room': '160',
+  Blues: '126',
+  Breaks: '20',
+  "Children's Music": '166',
+  'Chill Out': '21',
+  'Christian & Gospel': '121',
+  Christmas: '130',
+  Classical: '110',
+  Country: '111',
+  Dance: '139',
+  'Deep House': '23',
+  'DJ Tools': '22',
+  'Drum & Bass': '24',
+  Dubstep: '25',
+  'Electro House': '26',
+  Electronica: '27',
+  Funk: '174',
+  'Funk / R&B': '108',
+  'Garage / Bassline / Grime': '183',
+  'Glitch Hop': '119',
+  'Hard Core / Hard Techno': '29',
+  'Hard Dance': '28',
+  'Hip-Hop': '94',
+  House: '30',
+  Indie: '218',
+  'Indie Dance': '182',
+  'Indie Dance / Nu Disco': '31',
+  Jazz: '112',
+  Latin: '113',
+  'Leftfield Bass': '184',
+  Lounge: '151',
+  Minimal: '32',
+  'Nu Disco / Disco': '181',
+  Phonk: '213',
+  Pop: '98',
+  'Progressive House': '33',
+  'Psy-Trance': '34',
+  Rap: '157',
+  Rave: '134',
+  'Reggae / Dub': '109',
+  Rock: '95',
+  'Russian Chanson': '131',
+  Soul: '133',
+  Soundtrack: '132',
+  'Tech House': '35',
+  Techno: '36',
+  Trance: '37',
+  Trap: '172',
+  World: '115',
+};
+
 const dmbOptionValue = (html, label) => {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '(?:&|&amp;)');
   const match = html.match(new RegExp(`<a[^>]+value="([^"]+)"[^>]*>\\s*${escaped}\\s*</a>`, 'i'));
@@ -561,10 +618,13 @@ const submitReleaseToDmb = async (release, userId) => {
   });
   const language = detectDmbLanguage(release.title);
   const genre = String(release.genre || metadata.main_genre || '').split('/')[0].trim();
-  const genreValue = dmbOptionValue(insertHtml, genre);
+  const genreValue = dmbOptionValue(insertHtml, genre) || DMB_GENRE_IDS[genre] || '';
   const labelValue = params.get('label')
     || dmbOptionValue(insertHtml, labelName)
+    || DMB_LABEL_IDS[labelName]
+    || DMB_LABEL_IDS[(labelName || '').toUpperCase()]
     || dmbOptionValue(insertHtml, 'CDCULT RECORDS')
+    || DMB_LABEL_IDS['CDCULT RECORDS']
     || '';
   const displayArtist = release.artists || artists.join(', ');
   const currentYear = String(new Date().getFullYear());
