@@ -353,6 +353,35 @@ const detectDmbLanguage = (title = '') => (/[А-Яа-яЁё]/.test(title) ? 'ru'
 const dmbAlbumTypeValue = (type = '') => ({ album: '90', ep: '89', single: '91' }[String(type).toLowerCase()] || '91');
 const randomCatalogNumber = () => Array.from({ length: 9 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
 const splitPeople = (value = '') => String(value).split(',').map((item) => item.trim()).filter(Boolean);
+const stripHtml = (value = '') => value
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;/g, ' ')
+  .replace(/&amp;/g, '&')
+  .replace(/&copy;/g, '©')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const extractDmbIssues = (html = '') => {
+  const issues = [];
+  const issueRegex = /<li[^>]*class="[^"]*issue[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+  let match;
+  while ((match = issueRegex.exec(html))) {
+    const text = stripHtml(match[1]);
+    if (text && !issues.includes(text)) issues.push(text);
+  }
+
+  const badParams = [];
+  const badParamRegex = /<span[^>]*class="bad-param-name"[^>]*>([\s\S]*?)<\/span>/gi;
+  while ((match = badParamRegex.exec(html))) {
+    const text = stripHtml(match[1]);
+    if (text && !badParams.includes(text)) badParams.push(text);
+  }
+
+  const albumId = html.match(/\bid="album_id"\s+value="([^"]+)"/i)?.[1] || null;
+  const issueIndex = html.search(/issue-text|bad-param-name|has-issues/i);
+  const issueSnippet = issueIndex >= 0 ? stripHtml(html.slice(Math.max(0, issueIndex - 600), issueIndex + 1800)).slice(0, 1200) : '';
+  return { issues, badParams, albumId, issueSnippet };
+};
 
 const setDmbMultiField = (params, field, values, roleValue) => {
   params.set(`${field}_values_count`, String(values.length));
@@ -505,9 +534,17 @@ const submitReleaseToDmb = async (release, userId) => {
     },
   }, cookie);
   const submitText = await submitResult.response.text();
-  const success = submitResult.response.ok && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
+  const dmbIssues = extractDmbIssues(submitText);
+  const success = submitResult.response.ok
+    && !dmbIssues.issues.length
+    && !dmbIssues.badParams.length
+    && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
   log(success ? 'success' : 'warn', success ? 'DMB принял форму автоотгруза' : 'DMB вернул ответ с возможными ошибками', {
     status: submitResult.response.status,
+    dmbAlbumId: dmbIssues.albumId,
+    issues: dmbIssues.issues,
+    badParams: dmbIssues.badParams,
+    issueSnippet: dmbIssues.issueSnippet,
     responsePreview: submitText.replace(/\s+/g, ' ').slice(0, 500),
   });
   return { success, status: submitResult.response.status };
