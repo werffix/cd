@@ -477,13 +477,19 @@ const setDmbMultiField = (params, field, values, roleValue) => {
   });
 };
 
+const DMB_CONTRIBUTOR_ROLE_VALUES = {
+  composer: 'Composer',
+  producer: 'Producer',
+  lyricist: 'Lyricist',
+};
+
 const setDmbContributorFields = (params, contributorsMap) => {
   const entries = Array.from(contributorsMap.entries());
   params.set('contributors_values_count', String(entries.length));
   params.set('contributors_values', entries.map((_, index) => index).join(','));
   entries.forEach(([name, roles], index) => {
     params.set(`line${index}_contributors`, name);
-    params.set(`line${index}_contributors_roles`, Array.from(roles).join(','));
+    params.set(`line${index}_contributors_roles`, Array.from(roles).map((role) => DMB_CONTRIBUTOR_ROLE_VALUES[role] || role).join(','));
   });
 };
 
@@ -572,6 +578,12 @@ const extractDmbFormIds = (html = '') => {
   };
 };
 
+const extractDmbUploadPicId = (html = '') => (
+  html.match(/make_ajax_upload_pic\('([^']+)'\s*,\s*'album_pic'/i)?.[1]
+  || html.match(/make_ajax_upload_pic\("([^"]+)"\s*,\s*"album_pic"/i)?.[1]
+  || null
+);
+
 const fetchDmbReleasePayload = (releaseId) => {
   const release = db.prepare(`
     SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
@@ -601,6 +613,7 @@ const submitReleaseToDmb = async (release, userId) => {
     splitPeople(track.music_authors || track.musicAuthors).forEach((name) => {
       if (!contributors.has(name)) contributors.set(name, new Set());
       contributors.get(name).add('composer');
+      contributors.get(name).add('producer');
     });
     splitPeople(track.lyrics_authors || track.lyricsAuthors).forEach((name) => {
       if (!contributors.has(name)) contributors.set(name, new Set());
@@ -615,6 +628,7 @@ const submitReleaseToDmb = async (release, userId) => {
     if (fallbackComposer) {
       if (!contributors.has(fallbackComposer)) contributors.set(fallbackComposer, new Set());
       contributors.get(fallbackComposer).add('composer');
+      contributors.get(fallbackComposer).add('producer');
     }
   }
 
@@ -633,6 +647,7 @@ const submitReleaseToDmb = async (release, userId) => {
   const formRecordId = initialIds.recordId;
   const formAlbumHiddenId = initialIds.albumHiddenId;
   const formAaRecId = initialIds.aaRecId;
+  const uploadPicId = extractDmbUploadPicId(insertHtml);
   log('info', 'Форма создания релиза DMB открыта', {
     status: insertPage.response.status,
     formAction,
@@ -640,6 +655,7 @@ const submitReleaseToDmb = async (release, userId) => {
     formRecordId,
     formAlbumHiddenId,
     formAaRecId,
+    uploadPicId,
     dmbAlbumId: formAlbumId,
   });
   const language = detectDmbLanguage(release.title);
@@ -695,6 +711,10 @@ const submitReleaseToDmb = async (release, userId) => {
     albumType: release.release_type,
     artistsCount: artists.length,
     contributorsCount: contributors.size,
+    contributorsRoles: Array.from(contributors.entries()).map(([name, roles]) => ({
+      name,
+      roles: Array.from(roles).map((role) => DMB_CONTRIBUTOR_ROLE_VALUES[role] || role),
+    })),
     upcMode: metadata.upc ? 'manual' : 'SMW',
     sentFields: ['title', 'album_note', 'language', 'display_artist', 'label', 'barcode', 'barcode_skip', 'catalog_number', 'album_type', 'genre_common', 'genre_common_genre', 'primary_artist_values_count', 'contributors_values_count', 'datapage'].reduce((acc, key) => {
       acc[key] = params.get(key);
@@ -707,7 +727,7 @@ const submitReleaseToDmb = async (release, userId) => {
     if (fs.existsSync(coverPath)) {
       const coverUploadForm = new FormData();
       coverUploadForm.set('ajax', '1');
-      coverUploadForm.set('id', params.get('id') || '0');
+      coverUploadForm.set('id', uploadPicId || params.get('id') || '0');
       coverUploadForm.set('album_pic_temp_image', params.get('album_pic_temp_image__') || '');
       coverUploadForm.set('album_pic_temp_thumb', params.get('album_pic_temp_thumb__') || '');
       coverUploadForm.set('album_pic', new Blob([fs.readFileSync(coverPath)], { type: 'image/jpeg' }), path.basename(coverPath));
@@ -724,12 +744,17 @@ const submitReleaseToDmb = async (release, userId) => {
         coverUploadJson = null;
       }
       if (coverUploadJson?.status === 'ok') {
-        if (coverUploadJson.album_pic_temp_image) params.set('album_pic_temp_image__', coverUploadJson.album_pic_temp_image);
-        if (coverUploadJson.album_pic_temp_thumb) params.set('album_pic_temp_thumb__', coverUploadJson.album_pic_temp_thumb);
+        const tempImage = coverUploadJson.OLD_album_pic_temp_image || coverUploadJson.album_pic_temp_image;
+        const tempThumb = coverUploadJson.OLD_album_pic_temp_thumb || coverUploadJson.album_pic_temp_thumb;
+        if (tempImage) params.set('album_pic_temp_image__', tempImage);
+        if (tempThumb) params.set('album_pic_temp_thumb__', tempThumb);
         if (coverUploadJson.album_pic_temp_original) params.set('album_pic_temp_original__', coverUploadJson.album_pic_temp_original);
       }
       log(coverUploadJson?.status === 'ok' ? 'info' : 'warn', coverUploadJson?.status === 'ok' ? 'Обложка загружена в DMB temp-поля' : 'Не удалось загрузить обложку в DMB temp-поля', {
         status: coverUploadResult.response.status,
+        uploadPicId: uploadPicId || params.get('id') || '0',
+        savedTempImage: params.get('album_pic_temp_image__') || '',
+        savedTempThumb: params.get('album_pic_temp_thumb__') || '',
         responseJson: coverUploadJson,
         responsePreview: coverUploadText.replace(/\s+/g, ' ').slice(0, 400),
       });
