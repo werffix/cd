@@ -312,6 +312,207 @@ const normalizeDmbUpc = (value) => {
   return null;
 };
 
+const appendDmbExportLog = (releaseId, userId, level, message, details = {}) => {
+  const normalizedLevel = ['info', 'success', 'error', 'warn'].includes(level) ? level : 'info';
+  const detailsText = details && Object.keys(details).length ? JSON.stringify(details) : '';
+  db.prepare(`
+    INSERT INTO dmb_export_logs (release_id, user_id, level, message, details)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(releaseId, userId || null, normalizedLevel, message, detailsText);
+  const logMethod = normalizedLevel === 'error' ? console.error : console.log;
+  logMethod(`[DMB][EXPORT][${releaseId}] ${message}`, details);
+};
+
+const createDmbExportLogger = (releaseId, userId) => (level, message, details = {}) =>
+  appendDmbExportLog(releaseId, userId, level, message, details);
+
+const extractAllInputs = (html) => {
+  const params = new URLSearchParams();
+  const inputRegex = /<input\b([^>]*)>/gi;
+  let match;
+  while ((match = inputRegex.exec(html))) {
+    const attrs = match[1];
+    const name = attrs.match(/\bname="([^"]+)"/i)?.[1];
+    if (!name) continue;
+    const type = (attrs.match(/\btype="([^"]+)"/i)?.[1] || 'text').toLowerCase();
+    if (['button', 'submit', 'file'].includes(type)) continue;
+    if ((type === 'checkbox' || type === 'radio') && !/\bchecked\b/i.test(attrs)) continue;
+    const value = attrs.match(/\bvalue="([^"]*)"/i)?.[1] || '';
+    params.set(name, value.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'));
+  }
+  return params;
+};
+
+const dmbOptionValue = (html, label) => {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '(?:&|&amp;)');
+  const match = html.match(new RegExp(`<a[^>]+value="([^"]+)"[^>]*>\\s*${escaped}\\s*</a>`, 'i'));
+  return match?.[1] || '';
+};
+
+const detectDmbLanguage = (title = '') => (/[А-Яа-яЁё]/.test(title) ? 'ru' : 'en');
+const dmbAlbumTypeValue = (type = '') => ({ album: '90', ep: '89', single: '91' }[String(type).toLowerCase()] || '91');
+const randomCatalogNumber = () => Array.from({ length: 9 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
+const splitPeople = (value = '') => String(value).split(',').map((item) => item.trim()).filter(Boolean);
+
+const setDmbMultiField = (params, field, values, roleValue) => {
+  params.set(`${field}_values_count`, String(values.length));
+  params.set(`${field}_values`, values.map((_, index) => index).join(','));
+  values.forEach((value, index) => {
+    const name = field === 'contributors' ? `line${index}_${field}` : `line${index}${field}`;
+    const rolesName = field === 'contributors' ? `line${index}_${field}_roles` : `line${index}${field}_roles`;
+    params.set(name, value);
+    if (roleValue) params.set(rolesName, roleValue);
+  });
+};
+
+const loginToDmb = async (log = () => {}) => {
+  let cookie = '';
+  const loginPage = await fetchWithCookies(DMB_BASE_URL, { method: 'GET' }, cookie);
+  cookie = loginPage.cookie;
+  const loginHtml = await loginPage.response.text();
+  const loginAction = toAbsoluteUrl(extractFormAction(loginHtml, 'placeholder="Ваш Логин"') || '/');
+  const loginField = extractInputNameByPlaceholder(loginHtml, 'Ваш Логин') || 'login';
+  const passwordField = extractInputNameByPlaceholder(loginHtml, 'Ваш Пароль') || 'pass';
+  log('info', 'Страница входа DMB открыта', { status: loginPage.response.status, loginField, passwordField });
+
+  const loginBody = new URLSearchParams();
+  loginBody.set('action', 'login');
+  loginBody.set(loginField, DMB_LOGIN);
+  loginBody.set(passwordField, DMB_PASSWORD);
+
+  const loginResult = await fetchWithCookies(loginAction, {
+    method: 'POST',
+    body: loginBody,
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  }, cookie);
+  cookie = loginResult.cookie;
+  log('info', 'Вход в DMB выполнен', {
+    status: loginResult.response.status,
+    location: loginResult.response.headers.get('location') || null,
+  });
+  return cookie;
+};
+
+const fetchDmbReleasePayload = (releaseId) => {
+  const release = db.prepare(`
+    SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
+    FROM releases r
+    JOIN users u ON r.user_id = u.id
+    LEFT JOIN labels l ON l.user_id = u.id
+    WHERE r.id = ?
+  `).get(releaseId);
+  if (!release) return null;
+  let metadata = {};
+  try {
+    metadata = release.metadata ? JSON.parse(release.metadata) : {};
+  } catch (error) {
+    metadata = {};
+  }
+  return { ...release, metadata };
+};
+
+const submitReleaseToDmb = async (release, userId) => {
+  const log = createDmbExportLogger(release.id, userId);
+  const labelName = release.label_name || 'CDCULT RECORDS';
+  const metadata = release.metadata || {};
+  const tracks = Array.isArray(metadata.tracks) ? metadata.tracks : [];
+  const artists = splitPeople(release.artists);
+  const contributors = new Map();
+  tracks.forEach((track) => {
+    splitPeople(track.music_authors || track.musicAuthors).forEach((name) => contributors.set(name, 'Композитор, Продюсер'));
+    splitPeople(track.lyrics_authors || track.lyricsAuthors).forEach((name) => contributors.set(name, 'Автор слов'));
+  });
+
+  log('info', 'Автоотгруз DMB запущен', { title: release.title, artists: release.artists });
+  let cookie = await loginToDmb(log);
+
+  const insertUrl = `${DMB_BASE_URL}/albums/insert/`;
+  const insertPage = await fetchWithCookies(insertUrl, { method: 'GET' }, cookie);
+  cookie = insertPage.cookie;
+  const insertHtml = await insertPage.response.text();
+  const formAction = toAbsoluteUrl(extractFormAction(insertHtml, 'name="title"') || '/albums/insert');
+  const albumId = insertHtml.match(/\bid="album_id"\s+value="([^"]+)"/i)?.[1] || '';
+  log('info', 'Форма создания релиза DMB открыта', { status: insertPage.response.status, formAction, albumId });
+
+  const params = extractAllInputs(insertHtml);
+  const language = detectDmbLanguage(release.title);
+  const genre = String(release.genre || metadata.main_genre || '').split('/')[0].trim();
+  const genreValue = dmbOptionValue(insertHtml, genre);
+  const currentYear = String(new Date().getFullYear());
+
+  params.set('subform', 'album-main');
+  params.set('title', release.title || '');
+  params.set('album_note', release.subtitle || '');
+  params.set('language', language);
+  params.set('barcode', metadata.upc || '');
+  params.set('old_barcode', metadata.upc || '');
+  if (!metadata.upc) params.set('barcode_skip', 'on');
+  params.set('catalog_number', randomCatalogNumber());
+  params.set('phonograph_info_year', currentYear);
+  params.set('phonograph_info_name', labelName);
+  params.set('copyright_year', currentYear);
+  params.set('copyright_name', labelName);
+  params.set('album_type', dmbAlbumTypeValue(release.release_type));
+  if (genreValue) params.set('genre_common_genre', genreValue);
+  params.set('genre_common_subgenre', '');
+  setDmbMultiField(params, 'primary_artist', artists.length ? artists : [release.artists || release.artist_login || 'Artist'], 'role-34');
+  if (contributors.size) {
+    setDmbMultiField(params, 'contributors', Array.from(contributors.keys()), Array.from(contributors.values()).join(', '));
+  }
+  params.set('publishers_values_count', '1');
+  params.set('publishers_values', '0');
+  params.set('line0publishers', 'Label Control');
+  params.set('in_apply_mode', 'on');
+  params.set('cmd', 'apply');
+
+  log('info', 'Данные формы подготовлены', {
+    language,
+    genre,
+    genreValue,
+    albumType: release.release_type,
+    artistsCount: artists.length,
+    contributorsCount: contributors.size,
+    upcMode: metadata.upc ? 'manual' : 'SMW',
+  });
+
+  if (release.cover_url && albumId) {
+    const coverPath = path.join(__dirname, release.cover_url.replace(/^\/+/, ''));
+    if (fs.existsSync(coverPath)) {
+      const coverForm = new FormData();
+      const coverBuffer = fs.readFileSync(coverPath);
+      coverForm.set('album_pic', new Blob([coverBuffer]), path.basename(coverPath));
+      const coverUpload = await fetchWithCookies(`${DMB_BASE_URL}/albums/insert?usecache=on&editmode=yes&id=${encodeURIComponent(albumId)}`, {
+        method: 'POST',
+        body: coverForm,
+      }, cookie);
+      cookie = coverUpload.cookie;
+      const coverText = await coverUpload.response.text();
+      log(coverUpload.response.ok ? 'info' : 'warn', 'Попытка загрузки обложки в DMB выполнена', {
+        status: coverUpload.response.status,
+        responsePreview: coverText.replace(/\s+/g, ' ').slice(0, 220),
+      });
+    } else {
+      log('warn', 'Файл обложки не найден на сервере', { coverPath });
+    }
+  }
+
+  const submitResult = await fetchWithCookies(formAction, {
+    method: 'POST',
+    body: params,
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-requested-with': 'XMLHttpRequest',
+    },
+  }, cookie);
+  const submitText = await submitResult.response.text();
+  const success = submitResult.response.ok && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
+  log(success ? 'success' : 'warn', success ? 'DMB принял форму автоотгруза' : 'DMB вернул ответ с возможными ошибками', {
+    status: submitResult.response.status,
+    responsePreview: submitText.replace(/\s+/g, ' ').slice(0, 500),
+  });
+  return { success, status: submitResult.response.status };
+};
+
 const fetchUpcFromDmb = async ({ artist, title }) => {
   const normalizedArtist = (artist || '').split(',')[0].trim();
   const normalizedTitle = (title || '').trim();
@@ -701,6 +902,51 @@ app.delete('/api/admin/releases/:id', auth, staffOnly, (req, res) => {
   }
   db.prepare('DELETE FROM releases WHERE id = ?').run(req.params.id);
   res.json({ success: true });
+});
+
+app.post('/api/admin/releases/:id/dmb-export', auth, staffOnly, async (req, res) => {
+  const release = fetchDmbReleasePayload(req.params.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  if (req.user.role !== 'admin' && Number(release.user_id) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+
+  try {
+    const result = await submitReleaseToDmb(release, req.user.id);
+    res.json({
+      success: result.success,
+      message: result.success ? 'Автоотгруз DMB выполнен' : 'DMB вернул ответ с возможными ошибками, проверьте логи',
+    });
+  } catch (error) {
+    appendDmbExportLog(release.id, req.user.id, 'error', 'Автоотгруз DMB завершился ошибкой', {
+      error: error.message,
+      stack: error.stack?.split('\n').slice(0, 4).join('\n'),
+    });
+    res.status(500).json({ error: error.message || 'Не удалось выполнить автоотгруз DMB' });
+  }
+});
+
+app.get('/api/admin/releases/:id/dmb-logs', auth, staffOnly, (req, res) => {
+  const release = db.prepare('SELECT user_id FROM releases WHERE id = ?').get(req.params.id);
+  if (!release) return res.status(404).json({ error: 'Релиз не найден' });
+  if (req.user.role !== 'admin' && Number(release.user_id) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+  const logs = db.prepare(`
+    SELECT l.*, u.login
+    FROM dmb_export_logs l
+    LEFT JOIN users u ON u.id = l.user_id
+    WHERE l.release_id = ?
+    ORDER BY datetime(l.created_at) DESC, l.id DESC
+    LIMIT 200
+  `).all(req.params.id);
+  res.json(logs.map((item) => ({
+    ...item,
+    details: item.details ? (() => {
+      try { return JSON.parse(item.details); }
+      catch { return { raw: item.details }; }
+    })() : null,
+  })));
 });
 
 app.get('/api/admin/users', auth, adminOnly, (req, res) => {

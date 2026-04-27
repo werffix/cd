@@ -61,6 +61,17 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(user_id) REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS dmb_export_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    release_id INTEGER NOT NULL,
+    user_id INTEGER,
+    level TEXT DEFAULT 'info',
+    message TEXT NOT NULL,
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(release_id) REFERENCES releases(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
 `);
 
 const ensureColumn = (table, column, definition) => {
