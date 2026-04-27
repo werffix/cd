@@ -383,6 +383,32 @@ const extractDmbIssues = (html = '') => {
   return { issues, badParams, albumId, issueSnippet };
 };
 
+const findDmbAlbumId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const text = String(value);
+    return /^\d+$/.test(text) && text !== '0' ? text : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findDmbAlbumId(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of ['id', 'album_id', 'new_id', 'albumId']) {
+      const found = findDmbAlbumId(value[key]);
+      if (found) return found;
+    }
+    for (const item of Object.values(value)) {
+      const found = findDmbAlbumId(item);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 const setDmbMultiField = (params, field, values, roleValue) => {
   params.set(`${field}_values_count`, String(values.length));
   params.set(`${field}_values`, values.map((_, index) => index).join(','));
@@ -547,7 +573,7 @@ const submitReleaseToDmb = async (release, userId) => {
   } catch (error) {
     parsedSubmit = null;
   }
-  const committedAlbumId = parsedSubmit?.id || parsedSubmit?.album_id || parsedSubmit?.result?.id || dmbIssues.albumId || albumId;
+  const committedAlbumId = findDmbAlbumId(parsedSubmit) || findDmbAlbumId(dmbIssues.albumId) || findDmbAlbumId(albumId);
   const success = submitResult.response.ok
     && !dmbIssues.issues.length
     && !dmbIssues.badParams.length
@@ -558,22 +584,71 @@ const submitReleaseToDmb = async (release, userId) => {
     issues: dmbIssues.issues,
     badParams: dmbIssues.badParams,
     issueSnippet: dmbIssues.issueSnippet,
+    responseJson: parsedSubmit,
     responsePreview: submitText.replace(/\s+/g, ' ').slice(0, 500),
   });
   if (!success) return { success, status: submitResult.response.status };
-
-  const commitParams = new URLSearchParams(params);
-  if (committedAlbumId) {
-    commitParams.set('id', committedAlbumId);
-    commitParams.set('album_id', committedAlbumId);
+  if (!committedAlbumId) {
+    log('warn', 'DMB принял данные, но не вернул ID релиза для нажатия ОК', { responseJson: parsedSubmit });
+    return { success: false, status: submitResult.response.status };
   }
-  commitParams.set('datapage', 'apply');
-  commitParams.set('editmode', 'yes');
-  commitParams.set('usecache', 'on');
+
+  const applyPageBody = new URLSearchParams();
+  applyPageBody.set('ajax', '1');
+  applyPageBody.set('id', committedAlbumId);
+  applyPageBody.set('datapage_id', 'apply');
+  applyPageBody.set('subform', 'album-main');
+  applyPageBody.set('editmode', 'yes');
+  applyPageBody.set('usecache', 'on');
+  applyPageBody.set('album_id', committedAlbumId);
+  applyPageBody.set('in_apply_mode', 'on');
+
+  const applyPageResult = await fetchWithCookies(toAbsoluteUrl('/albums/update/readpage'), {
+    method: 'POST',
+    body: applyPageBody,
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  }, cookie);
+  const applyPageHtml = await applyPageResult.response.text();
+  const applyIssues = extractDmbIssues(applyPageHtml);
+  const applyParams = extractAllInputs(applyPageHtml);
+  applyParams.set('id', committedAlbumId);
+  applyParams.set('album_id', committedAlbumId);
+  applyParams.set('datapage', 'apply');
+  applyParams.set('subform', 'album-apply');
+  applyParams.set('editmode', 'yes');
+  applyParams.set('usecache', 'on');
+  applyParams.set('in_apply_mode', 'on');
+  applyParams.set('is_final_submit', 'true');
+
+  log(applyIssues.issues.length ? 'warn' : 'info', 'Вкладка Применить DMB открыта перед кнопкой ОК', {
+    status: applyPageResult.response.status,
+    dmbAlbumId: committedAlbumId,
+    issues: applyIssues.issues,
+    badParams: applyIssues.badParams,
+  });
+
+  const applySaveResult = await fetchWithCookies(toAbsoluteUrl('/albums/update/applypage'), {
+    method: 'POST',
+    body: applyParams,
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  }, cookie);
+  const applySaveText = await applySaveResult.response.text();
+  let applySaveJson = null;
+  try {
+    applySaveJson = JSON.parse(applySaveText);
+  } catch (error) {
+    applySaveJson = null;
+  }
+  const applySaveOk = applySaveResult.response.ok && (!applySaveJson || applySaveJson.status === 'ok');
+  log(applySaveOk ? 'info' : 'warn', 'Вкладка Применить сохранена перед ОК', {
+    status: applySaveResult.response.status,
+    dmbAlbumId: committedAlbumId,
+    response: applySaveJson || applySaveText.replace(/\s+/g, ' ').slice(0, 500),
+  });
 
   const commitResult = await fetchWithCookies(toAbsoluteUrl('/albums/update/commit&ajax=1'), {
     method: 'POST',
-    body: commitParams,
+    body: applyParams,
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
   }, cookie);
   const commitText = await commitResult.response.text();
