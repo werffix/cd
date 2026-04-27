@@ -637,7 +637,7 @@ const submitReleaseToDmb = async (release, userId) => {
   log('info', 'Автоотгруз DMB запущен', { title: release.title, artists: release.artists });
   let cookie = await loginToDmb(log);
 
-  const insertUrl = `${DMB_BASE_URL}/albums/insert/`;
+  const insertUrl = `${DMB_BASE_URL}/albums/insert/?initcache=yes&editmode=yes&usecache=on`;
   const insertPage = await fetchWithCookies(insertUrl, { method: 'GET' }, cookie);
   cookie = insertPage.cookie;
   const insertHtml = await insertPage.response.text();
@@ -652,6 +652,7 @@ const submitReleaseToDmb = async (release, userId) => {
   const uploadPicId = extractDmbUploadPicId(insertHtml);
   log('info', 'Форма создания релиза DMB открыта', {
     status: insertPage.response.status,
+    insertUrl,
     formAction,
     saveMainPageAction,
     formRecordId,
