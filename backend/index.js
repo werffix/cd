@@ -448,6 +448,46 @@ const loginToDmb = async (log = () => {}) => {
   return cookie;
 };
 
+const findDmbReleaseByArtistAndTitle = async ({ cookie, artist, title, log = () => {} }) => {
+  const normalizedArtist = String(artist || '').split(',')[0].trim();
+  const normalizedTitle = String(title || '').trim();
+  if (!normalizedArtist || !normalizedTitle) return null;
+
+  const listUrl = `${DMB_BASE_URL}/ru/albums/list/`;
+  const listPage = await fetchWithCookies(listUrl, { method: 'GET' }, cookie);
+  const nextCookie = listPage.cookie;
+  const listHtml = await listPage.response.text();
+  const titleField = extractInputNameByPlaceholder(listHtml, 'Название') || 'f_album_like';
+  const artistField = extractInputNameByPlaceholder(listHtml, 'Артист') || 'f_artist_like';
+
+  const searchUrl = new URL(listUrl);
+  searchUrl.searchParams.set(titleField, normalizedTitle);
+  searchUrl.searchParams.set(artistField, normalizedArtist);
+
+  const searchResult = await fetchWithCookies(searchUrl.toString(), { method: 'GET' }, nextCookie);
+  const finalCookie = searchResult.cookie;
+  const searchHtml = await searchResult.response.text();
+  const releaseLinkMatch = searchHtml.match(/<a[^>]+title="Open release for view"[^>]+href="([^"]+)"|<a[^>]+href="([^"]+)"[^>]+title="Open release for view"/i);
+  const releaseUrl = toAbsoluteUrl(releaseLinkMatch?.[1] || releaseLinkMatch?.[2]);
+  const releaseId = releaseUrl.match(/[?&]id=(\d+)/i)?.[1] || searchHtml.match(/\bid="album_id"\s+value="(\d+)"/i)?.[1] || null;
+
+  log(releaseUrl ? 'info' : 'warn', releaseUrl ? 'DMB релиз найден через список' : 'DMB релиз не найден через список', {
+    status: searchResult.response.status,
+    artist: normalizedArtist,
+    title: normalizedTitle,
+    searchUrl: searchUrl.toString(),
+    releaseUrl,
+    releaseId,
+    responsePreview: searchHtml.replace(/\s+/g, ' ').slice(0, 320),
+  });
+
+  return {
+    cookie: finalCookie,
+    releaseUrl,
+    releaseId,
+  };
+};
+
 const fetchDmbReleasePayload = (releaseId) => {
   const release = db.prepare(`
     SELECT r.*, u.login as artist_login, u.email as artist_email, l.label_name
@@ -573,11 +613,11 @@ const submitReleaseToDmb = async (release, userId) => {
   } catch (error) {
     parsedSubmit = null;
   }
-  const committedAlbumId = findDmbAlbumId(parsedSubmit) || findDmbAlbumId(dmbIssues.albumId) || findDmbAlbumId(albumId);
   const success = submitResult.response.ok
     && !dmbIssues.issues.length
     && !dmbIssues.badParams.length
     && !/has-issues|bad-param-name|print_errors|status["']?\s*:\s*["']?error/i.test(submitText);
+  let committedAlbumId = findDmbAlbumId(parsedSubmit) || findDmbAlbumId(dmbIssues.albumId) || findDmbAlbumId(albumId);
   log(success ? 'success' : 'warn', success ? 'DMB принял форму автоотгруза' : 'DMB вернул ответ с возможными ошибками', {
     status: submitResult.response.status,
     dmbAlbumId: committedAlbumId,
@@ -589,7 +629,21 @@ const submitReleaseToDmb = async (release, userId) => {
   });
   if (!success) return { success, status: submitResult.response.status };
   if (!committedAlbumId) {
-    log('warn', 'DMB принял данные, но не вернул ID релиза для нажатия ОК', { responseJson: parsedSubmit });
+    const foundRelease = await findDmbReleaseByArtistAndTitle({
+      cookie,
+      artist: release.artists || release.artist_login,
+      title: release.title,
+      log,
+    });
+    cookie = foundRelease?.cookie || cookie;
+    committedAlbumId = foundRelease?.releaseId || null;
+  }
+  if (!committedAlbumId) {
+    log('warn', 'DMB принял данные, но не вернул ID релиза и не нашёл его в списке для нажатия ОК', {
+      responseJson: parsedSubmit,
+      title: release.title,
+      artists: release.artists,
+    });
     return { success: false, status: submitResult.response.status };
   }
 
