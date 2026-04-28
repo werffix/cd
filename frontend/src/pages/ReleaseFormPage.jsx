@@ -583,14 +583,14 @@ export default function ReleaseFormPage() {
       setMenuOpen={setMenuOpen}
       logout={logout}
       >
-        <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-6 py-8 sm:px-8">
+        <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-8 sm:px-8">
         <div className="mt-6 flex flex-col items-center text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">Создание релиза</h1>
           <p className="mt-2 text-sm text-zinc-400">Заполните данные о релизе, треках и контактах для отправки на модерацию.</p>
         </div>
 
-        <div className="mt-8 flex w-full items-center justify-center">
-          <div className="flex w-full max-w-4xl items-center justify-center gap-6">
+        <div className="mt-8 w-full overflow-x-auto pb-2">
+          <div className="mx-auto flex min-w-max w-full max-w-4xl items-start justify-center gap-4 sm:items-center sm:gap-6">
             {[
               { title: 'Данные релиза', subtitle: 'Основная информация' },
               { title: 'Треклист', subtitle: 'Треки и архив' },
@@ -601,7 +601,7 @@ export default function ReleaseFormPage() {
               const isActive = currentStep === step;
               const isError = stepErrors[currentStep];
               return (
-                <div key={item.title} className="flex flex-1 items-center justify-center gap-4">
+                <div key={item.title} className="flex min-w-[140px] flex-1 items-center justify-center gap-3 sm:min-w-0 sm:gap-4">
                   <button
                     type="button"
                     onClick={() => setStep(currentStep)}

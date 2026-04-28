@@ -590,7 +590,7 @@ export default function AdminPanel() {
   return (
     <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-16'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
               <div className="flex w-full items-center gap-3">
@@ -608,7 +608,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                className="flex h-12 w-12 justify-center self-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 items-center"
               >
                 <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
               </button>
