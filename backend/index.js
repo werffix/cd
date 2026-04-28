@@ -10,7 +10,8 @@ const db = require('./db');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '12mb' }));
+app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 app.get('/uploads/support/:filename', (req, res, next) => {
   const supportPath = path.join(__dirname, 'uploads', 'support', req.params.filename);
   if (fs.existsSync(supportPath)) {
@@ -1996,7 +1997,10 @@ app.post('/api/releases/:id/request-upc', auth, (req, res) => {
   })
     .then((upc) => {
       if (!upc) {
-        return res.status(404).json({ error: 'Попробуйте позже, UPC еще не готов' });
+        return res.status(404).json({
+          error: 'Попробуйте позже, UPC еще не готов',
+          code: 'upc_not_ready',
+        });
       }
 
       const nextMetadata = {
