@@ -26,16 +26,22 @@
 
   html {
     @apply scroll-smooth;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   body {
     font-family: 'Montserrat', sans-serif;
     background: #0a0a0a;
     color: hsl(var(--text));
+    width: 100%;
+    overflow-x: hidden;
     @apply min-h-screen antialiased;
   }
 
   #root {
+    width: 100%;
+    overflow-x: hidden;
     @apply min-h-screen;
   }
 
@@ -49,10 +55,11 @@
 	    100% { transform: translate3d(-4%, 2%, 0) scale(1); opacity: 0.2; }
 	  }
 
-	  .lucide {
-	    fill: currentColor;
-	    stroke: none;
-	  }
+  .lucide,
+  .lucide * {
+    fill: currentColor !important;
+    stroke: none !important;
+  }
 }
 
 @layer components {

@@ -351,6 +351,8 @@ export default function ReleaseDetailsModal({
                 ) : null}
               </div>
 
+              {actionButtons ? <div className="space-y-2">{actionButtons}</div> : null}
+
               {showOwner ? (
                 <>
                   <div className="rounded-lg border border-zinc-800/50 bg-zinc-900/50 p-3 text-sm text-zinc-300">
@@ -367,8 +369,6 @@ export default function ReleaseDetailsModal({
                   </div>
                 </>
               ) : null}
-
-              {actionButtons ? <div className="space-y-2">{actionButtons}</div> : null}
             </aside>
 
             <section className="w-full space-y-6 md:w-2/3">

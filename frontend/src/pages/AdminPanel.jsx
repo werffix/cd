@@ -4,6 +4,7 @@ import api from '../api';
 import ReleaseDetailsModal from '../components/ReleaseDetailsModal';
 import { ADMIN_FILTERS, STATUS_META, formatDate, formatDateTime, parseRelease, resolveAssetUrl } from '../lib/releases';
 import { useAuth } from '../AuthContext';
+import siteLogo from '../assets/site-logo.png';
 
 const getArtistLabel = (release) =>
   release.artists || release.artist_login || release.artist_email || 'Артист не указан';
@@ -589,27 +590,27 @@ export default function AdminPanel() {
   return (
     <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-16'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
-              <div className="flex items-center gap-3">
+              <div className="flex w-full items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((prev) => !prev)}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
                 >
-                  <Menu size={16} />
+                  <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
                 </button>
-                <div className="text-sm font-bold tracking-wide text-white">Меню</div>
+                <div className="flex h-12 flex-1 items-center rounded-2xl bg-zinc-900/40 px-4 text-sm font-semibold text-zinc-200">Меню</div>
               </div>
             ) : null}
             {!sidebarOpen ? (
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
               >
-                <Menu size={16} />
+                <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
               </button>
             ) : null}
           </div>
@@ -649,11 +650,13 @@ export default function AdminPanel() {
 
         <div className="flex-1 pb-24 md:pb-0">
           <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
-            <header className="sticky top-0 z-10 mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-zinc-800/60 bg-black/45 pb-5 backdrop-blur-xl">
-                <div className="flex items-center gap-3 pl-5 sm:pl-8">
-                  <div className="flex items-center gap-2">
-                    <Disc3 size={16} className="text-zinc-400" />
-                    <span className="text-sm font-semibold tracking-wide text-white">Панель модерации</span>
+            <header className="sticky top-0 z-10 mb-6 flex h-20 flex-wrap items-center justify-between gap-4 border-b border-zinc-800/60 bg-black/45 backdrop-blur-xl">
+                <div className="flex items-center gap-3 pl-3 sm:pl-5">
+                  <button type="button" onClick={() => setActiveSection('releases')} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
+                    <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
+                  </button>
+                  <div>
+                    <h1 className="text-lg font-bold leading-tight tracking-wide text-white">CDCULT Distribution</h1>
                   </div>
                 </div>
 
@@ -719,7 +722,16 @@ export default function AdminPanel() {
 
             {activeSection === 'releases' ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:gap-5">
+                  <div className="relative w-full min-w-0 flex-1 max-w-none md:max-w-xs">
+                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Поиск по названию релиза"
+                      className="field-input w-full pl-11"
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {ADMIN_FILTERS.map((item) => (
                       <button
@@ -734,30 +746,18 @@ export default function AdminPanel() {
                       </button>
                     ))}
                   </div>
-                  <div className="relative w-full max-w-xs">
-                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Поиск по названию"
-                      className="field-input w-full pl-11"
-                    />
-                  </div>
                 </div>
 
-                <section className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {filteredReleases.map((release) => {
                 const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                 return (
-                  <div
+                  <button
                     key={release.id}
-                    className="overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl transition-all duration-300 hover:border-zinc-600 hover:shadow-white/5"
+                    type="button"
+                    onClick={() => setSelectedRelease(release)}
+                    className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-800/60 bg-[#121212] text-left transition-all duration-300 hover:border-zinc-600 hover:shadow-2xl hover:shadow-white/5"
                   >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRelease(release)}
-                      className="group flex w-full flex-col text-left"
-                    >
                       <div className="relative aspect-square overflow-hidden bg-zinc-900 border-b border-zinc-800/60">
                         <img src={release.cover} alt={release.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                         <div className="absolute right-3 top-3">
@@ -787,18 +787,23 @@ export default function AdminPanel() {
                           <span className="font-semibold text-zinc-300">{formatDate(release.metadata?.release_date || release.created_at)}</span>
                         </div>
                       </div>
-                    </button>
-                    <div className="flex flex-wrap gap-2 px-5 pb-5">
-                      {buildActionButtons(release, true)}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
                 </section>
               </>
             ) : activeSection === 'my-releases' ? (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:gap-5">
+                  <div className="relative w-full min-w-0 flex-1 max-w-none md:max-w-xs">
+                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Поиск по названию релиза"
+                      className="field-input w-full pl-11"
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {ADMIN_FILTERS.map((item) => (
                       <button
@@ -813,17 +818,8 @@ export default function AdminPanel() {
                       </button>
                     ))}
                   </div>
-                  <div className="relative w-full max-w-xs">
-                    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Поиск по названию"
-                      className="field-input w-full pl-11"
-                    />
-                  </div>
                 </div>
-                <section className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {filteredMyReleases.length ? filteredMyReleases.map((release) => {
                     const statusMeta = STATUS_META[release.status] || STATUS_META.draft;
                     return (

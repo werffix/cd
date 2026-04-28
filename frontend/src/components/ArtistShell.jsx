@@ -20,29 +20,27 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
   return (
     <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-16'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
-              <div className="flex items-center gap-3">
+              <div className="flex w-full items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((prev) => !prev)}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
                 >
-                  <Menu size={16} />
+                  <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
                 </button>
-                <button type="button" onClick={() => navigate('/dashboard')} className="text-sm font-bold tracking-wide text-white">
-                  Меню
-                </button>
+                <div className="flex h-12 flex-1 items-center rounded-2xl bg-zinc-900/40 px-4 text-sm font-semibold text-zinc-200">Меню</div>
               </div>
             ) : null}
             {!sidebarOpen ? (
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
               >
-                <Menu size={16} />
+                <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
               </button>
             ) : null}
           </div>
@@ -75,7 +73,7 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
 
         <div className="flex-1">
           <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-black/45 px-5 backdrop-blur-xl sm:px-7">
-            <div className="flex items-center gap-3 pl-5 sm:pl-8">
+            <div className="flex items-center gap-3 pl-3 sm:pl-5">
               <button type="button" onClick={() => navigate('/dashboard')} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                 <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
               </button>

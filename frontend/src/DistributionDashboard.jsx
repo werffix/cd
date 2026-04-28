@@ -18,6 +18,7 @@ export default function DistributionDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [requestingUpcId, setRequestingUpcId] = useState(null);
+  const [upcNoticeOpen, setUpcNoticeOpen] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   const [profile, setProfile] = useState({
     name: user?.name || '',
@@ -109,8 +110,12 @@ export default function DistributionDashboard() {
       setReleases(parsed);
       setSelectedRelease(parsed.find((item) => item.id === release.id) || null);
     } catch (error) {
-      setSettingsMessage(error.response?.data?.error || 'Не удалось отправить запрос UPC');
-      setTimeout(() => setSettingsMessage(''), 2200);
+      if (error.response?.data?.code === 'upc_not_ready') {
+        setUpcNoticeOpen(true);
+      } else {
+        setSettingsMessage(error.response?.data?.error || 'Не удалось отправить запрос UPC');
+        setTimeout(() => setSettingsMessage(''), 2200);
+      }
     } finally {
       setRequestingUpcId(null);
     }
@@ -151,9 +156,9 @@ export default function DistributionDashboard() {
         </button>
       )}
     >
-      <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
-        <div className="mb-6 flex flex-wrap items-center gap-5">
-          <div className="relative min-w-[280px] flex-1">
+      <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-8">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:gap-5">
+          <div className="relative w-full min-w-0 flex-1">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -175,17 +180,17 @@ export default function DistributionDashboard() {
               </button>
             ))}
           </div>
-          <div className="relative md:hidden">
+          <div className="relative w-full md:hidden">
             <button
               type="button"
               onClick={() => setFiltersOpen((prev) => !prev)}
-              className="secondary-button"
+              className="secondary-button w-full"
             >
               Фильтры
               <ChevronDown size={16} />
             </button>
             {filtersOpen ? (
-              <div className="absolute right-0 top-12 z-20 min-w-[220px] rounded-2xl bg-[#121212] p-2 shadow-2xl">
+              <div className="absolute left-0 right-0 top-12 z-20 rounded-2xl bg-[#121212] p-2 shadow-2xl">
                 {STATUS_FILTERS.map((item) => (
                   <button
                     key={item.key}
@@ -399,6 +404,23 @@ export default function DistributionDashboard() {
                 </div>
               ) : null}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {upcNoticeOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4" onClick={() => setUpcNoticeOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-[#121212] p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold text-white">UPC пока ещё не готов</h3>
+            <p className="mt-4 text-sm leading-6 text-zinc-300">
+              Релиз ещё не доставлен ни на одну площадку, поэтому DMB пока не выдал UPC-код.
+            </p>
+            <div className="mt-4 rounded-2xl border border-zinc-800/70 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-400">
+              Попробуйте запросить UPC немного позже, когда релиз появится в доставке на площадках.
+            </div>
+            <button type="button" onClick={() => setUpcNoticeOpen(false)} className="primary-button mt-6 w-full justify-center">
+              Понятно
+            </button>
           </div>
         </div>
       ) : null}
