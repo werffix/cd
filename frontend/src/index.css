@@ -7,13 +7,13 @@
 @layer base {
   :root {
     color-scheme: dark;
-    --bg: 224 18% 5%;
-    --bg-soft: 224 17% 7%;
-    --surface: 222 16% 10%;
-    --surface-2: 222 15% 13%;
-    --line: 222 13% 24%;
+    --bg: 0 0% 4%;
+    --bg-soft: 0 0% 4%;
+    --surface: 0 0% 6%;
+    --surface-2: 0 0% 9%;
+    --line: 0 0% 18%;
     --text: 210 33% 97%;
-    --muted: 217 14% 70%;
+    --muted: 217 12% 66%;
     --accent: 0 0% 100%;
     --success: 142 72% 48%;
     --warning: 40 96% 56%;
@@ -32,10 +32,7 @@
 
   body {
     font-family: 'Montserrat', sans-serif;
-    background:
-      radial-gradient(1200px 600px at 12% -18%, rgba(96, 165, 250, 0.09), transparent 55%),
-      radial-gradient(900px 500px at 84% -10%, rgba(167, 139, 250, 0.08), transparent 52%),
-      hsl(var(--bg));
+    background: #0a0a0a;
     color: hsl(var(--text));
     width: 100%;
     overflow-x: hidden;
@@ -69,33 +66,19 @@
 	  .app-shell {
 	    min-height: 100vh;
 	    color: white;
-    background:
-      radial-gradient(900px 420px at 10% -12%, rgba(59, 130, 246, 0.08), transparent 56%),
-      radial-gradient(760px 360px at 88% -18%, rgba(192, 132, 252, 0.07), transparent 54%),
-      #050507 !important;
+    background: #050505 !important;
 	  }
 
   .glass-card {
-    @apply rounded-2xl border shadow-2xl;
-    background-color: rgba(17, 20, 32, 0.9);
-    border-color: hsl(var(--line) / 0.75);
-    box-shadow:
-      0 20px 55px rgba(0, 0, 0, 0.52),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    @apply rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl;
   }
 
   .panel-card {
-    @apply rounded-2xl border shadow-2xl;
-    background-color: rgba(16, 19, 28, 0.92);
-    border-color: hsl(var(--line) / 0.72);
-    box-shadow:
-      0 16px 44px rgba(0, 0, 0, 0.46),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    @apply rounded-2xl border border-zinc-800/60 bg-[#121212] shadow-2xl;
   }
 
   .soft-card {
-    @apply rounded-xl border bg-zinc-900/35;
-    border-color: hsl(var(--line) / 0.65);
+    @apply rounded-xl border border-zinc-800/60 bg-zinc-900/30;
   }
 
   .brand-badge {
@@ -115,25 +98,7 @@
   }
 
   .field-input {
-    @apply w-full rounded-xl border bg-zinc-900/50 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500;
-    border-color: hsl(var(--line) / 0.72);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-    transition:
-      border-color 0.2s ease,
-      background-color 0.2s ease,
-      box-shadow 0.2s ease;
-  }
-
-  .field-input:hover {
-    border-color: hsl(var(--line) / 0.95);
-  }
-
-  .field-input:focus {
-    @apply bg-zinc-900/70 ring-2 ring-white/10;
-    border-color: rgba(125, 211, 252, 0.6);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 0 3px rgba(56, 189, 248, 0.08);
+    @apply w-full rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-zinc-600 focus:bg-zinc-900/60 focus:ring-2 focus:ring-white/10;
   }
 
   .date-field {
@@ -167,27 +132,11 @@
   }
 
   .primary-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition active:scale-95;
-    box-shadow:
-      0 10px 25px rgba(0, 0, 0, 0.35),
-      0 1px 0 rgba(255, 255, 255, 0.2) inset;
-  }
-
-  .primary-button:hover {
-    @apply bg-zinc-200;
-    transform: translateY(-1px);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200 active:scale-95;
   }
 
   .secondary-button {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border bg-zinc-900/45 px-5 py-2.5 text-sm font-semibold text-white transition;
-    border-color: hsl(var(--line) / 0.72);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
-  }
-
-  .secondary-button:hover {
-    @apply bg-zinc-800/70;
-    border-color: hsl(var(--line) / 0.95);
-    transform: translateY(-1px);
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-800/60 bg-zinc-900/40 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800/60;
   }
 
   .status-pill {
