@@ -83,7 +83,8 @@ export default function SupportPage() {
         </button>
       )}
     >
-      <main className="mx-auto w-full max-w-[1600px] px-6 py-8 sm:px-8">
+      <main className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-5xl">
         <h2 className="text-3xl font-bold text-white">Поддержка</h2>
         <div className="mt-6 grid gap-4">
           {tickets.length ? tickets.map((ticket) => (
@@ -116,6 +117,7 @@ export default function SupportPage() {
               У вас пока нет запросов в поддержку.
             </div>
           )}
+        </div>
         </div>
       </main>
 

@@ -16,29 +16,36 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const menuButtonClass = 'flex h-12 items-center rounded-2xl bg-zinc-900/40 text-zinc-200 transition hover:bg-zinc-800/60';
 
   return (
     <div className="app-shell min-h-screen">
       <div className="flex min-h-screen">
-        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#0f0f0f] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+        <aside className={`sticky top-0 hidden h-screen shrink-0 bg-[#111111] transition-all duration-300 md:block ${sidebarOpen ? 'w-64' : 'w-[72px]'}`}>
           <div className={`flex h-20 items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-3'}`}>
             {sidebarOpen ? (
               <div className="flex w-full items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setSidebarOpen((prev) => !prev)}
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60"
+                  className={`${menuButtonClass} w-12 shrink-0 justify-center`}
                 >
                   <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
                 </button>
-                <div className="flex h-12 flex-1 items-center rounded-2xl bg-zinc-900/40 px-4 text-sm font-semibold text-zinc-200">Меню</div>
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen((prev) => !prev)}
+                  className={`${menuButtonClass} flex-1 justify-start px-4 text-sm font-semibold`}
+                >
+                  Меню
+                </button>
               </div>
             ) : null}
             {!sidebarOpen ? (
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="flex h-12 w-12 justify-center self-center rounded-2xl bg-zinc-900/40 text-zinc-300 transition hover:bg-zinc-800/60 items-center"
+                className={`${menuButtonClass} h-12 w-12 justify-center self-center`}
               >
                 <span className="flex h-5 w-5 items-center justify-center"><Menu size={18} /></span>
               </button>
@@ -72,7 +79,7 @@ export default function ArtistShell({ user, avatarPreview, avatarFallback, menuO
         </aside>
 
         <div className="flex-1">
-          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-black/45 px-4 backdrop-blur-xl sm:px-7">
+          <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b border-zinc-800/60 bg-[#111111]/85 px-4 backdrop-blur-xl sm:px-7">
             <div className="flex min-w-0 items-center gap-3 pl-1 sm:pl-5">
               <button type="button" onClick={() => navigate('/dashboard')} className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                 <img src={siteLogo} alt="CDCULT" className="h-full w-full object-contain" />
